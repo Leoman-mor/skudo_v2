@@ -27,7 +27,7 @@ st.title("Calculadora de Muestra Estadística – CCPS")
 
 st.write("Calcula el tamaño de muestra para evaluar cultura en seguridad de procesos.")
 
-N = st.number_input("Número total de trabajadores (excluyendo líderes)", min_value=1, step=1)
+N = st.number_input("Número total de trabajadores (opcional excluir a líderes)", min_value=1, step=1)
 
 nivel_confianza = st.selectbox(
     "Nivel de confianza",
@@ -52,3 +52,4 @@ if st.button("Calcular muestra"):
     )
 
     st.success(f"**Tamaño de muestra recomendado: {n} trabajadores**")
+
