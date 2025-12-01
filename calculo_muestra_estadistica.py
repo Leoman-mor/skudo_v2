@@ -82,12 +82,57 @@ if st.button("Calcular muestras"):
         margen_error=margen_error
     )
 
-    st.subheader("Resultados")
+    st.subheader("Resultados del cálculo muestral")
+
+    nivel_conf_pct = int(nivel_confianza * 100)
+    margen_error_pct = int(margen_error * 100)
 
     colA, colB = st.columns(2)
 
+    # -------------------------------
+    # Bloque trabajadores directos
+    # -------------------------------
     with colA:
-        st.info(f"📌 **Muestra recomendada – Trabajadores directos:** {muestra_directos}")
+        st.markdown("### Trabajadores directos")
 
+        if N_directos > 0 and muestra_directos > 0:
+            st.markdown(
+                f"""
+                Con una población de **{N_directos}** trabajadores directos, un nivel de confianza de  
+                **{nivel_conf_pct}%** y un margen de error máximo de **±{margen_error_pct}%**,  
+                el **tamaño mínimo de muestra recomendado es de {muestra_directos} personas**.
+
+                En términos estadísticos, esto significa que si seleccionas de forma aleatoria al menos  
+                **{muestra_directos}** trabajadores directos para responder la encuesta, las estimaciones
+                de proporciones (por ejemplo, el porcentaje que percibe adecuada la cultura de seguridad)
+                tendrán una diferencia esperada no mayor a **±{margen_error_pct} puntos porcentuales**
+                respecto al valor real de toda la población de trabajadores directos, con un nivel de
+                confianza de **{nivel_conf_pct}%**.
+                """
+            )
+        else:
+            st.info("No se ingresó un número válido de trabajadores directos.")
+
+    # -------------------------------
+    # Bloque contratistas
+    # -------------------------------
     with colB:
-        st.info(f"📌 **Muestra recomendada – Contratistas:** {muestra_contratistas}")
+        st.markdown("### Contratistas")
+
+        if N_contratistas > 0 and muestra_contratistas > 0:
+            st.markdown(
+                f"""
+                Con una población de **{N_contratistas}** contratistas, un nivel de confianza de  
+                **{nivel_conf_pct}%** y un margen de error máximo de **±{margen_error_pct}%**,  
+                el **tamaño mínimo de muestra recomendado es de {muestra_contratistas} personas**.
+
+                Desde el punto de vista estadístico, encuestar al menos a **{muestra_contratistas}**
+                contratistas permite que las proporciones estimadas para este grupo (por ejemplo,
+                el porcentaje que considera que los controles de proceso son claros) se desvíen como máximo
+                **±{margen_error_pct} puntos porcentuales** del valor real en toda la población de
+                contratistas, con un nivel de confianza de **{nivel_conf_pct}%**.
+                """
+            )
+        else:
+            st.info("No se ingresó un número válido de contratistas.")
+
