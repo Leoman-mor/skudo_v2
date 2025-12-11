@@ -68,6 +68,29 @@ st.markdown(
         border: 1px solid #E3E7EF;
         box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
     }}
+        .panel-card {{
+        background-color: #FFFFFF;
+        padding: 1.2rem 1.4rem;
+        border-radius: 1rem;
+        border: 1px solid #E3E7EF;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+        margin-bottom: 1.2rem;
+    }}
+    .panel-header {{
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 0.7rem;
+    }}
+    .panel-header-title {{
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #111827;
+    }}
+    .panel-header-sub {{
+        font-size: 0.8rem;
+        color: #6B7280;
+    }}
     .section-title {{
         font-size: 1.1rem;
         font-weight: 600;
@@ -772,7 +795,7 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
     st.markdown("### Diagnóstico CCPS – Madurez, cultura y brechas")
 
     # --------------------------
-    # FILTRO PRINCIPAL POR INSTALACIÓN
+    # BASE: diagnostico filtrado por instalación
     # --------------------------
     if instalacion_activa == "Todas":
         df_diag_f = df_diag.copy()
@@ -780,9 +803,13 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
         df_diag_f = df_diag[df_diag["instalacion"] == instalacion_activa]
 
     madurez_global = calcular_madurez_global(df_diag_f)
+    total_items = len(df_diag_f)
+    brechas_criticas = int(
+        df_diag_f["calificacion"].isin(["Muy bajo", "Bajo"]).sum()
+    )
 
     # --------------------------
-    # FILTROS SUPERIORES (barra tipo tu screenshot)
+    # FILTROS SUPERIORES
     # --------------------------
     fc1, fc2, fc3 = st.columns([1.5, 1.5, 1])
     with fc1:
@@ -796,7 +823,7 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
             options=["Todos"] + sorted(df_diag_f["elemento"].unique().tolist()),
         )
     with fc3:
-        solo_criticos = st.checkbox("Ver solo críticos (Muy bajo / Bajo)", value=False)
+        solo_criticos = st.checkbox("Solo críticos (Muy bajo / Bajo)", value=False)
 
     df_filtrado = df_diag_f.copy()
     if filtro_pilar != "Todos":
@@ -806,32 +833,64 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
     if solo_criticos:
         df_filtrado = df_filtrado[df_filtrado["calificacion"].isin(["Muy bajo", "Bajo"])]
 
-    # --------------------------
-    # PRIMERA SECCIÓN: GRÁFICA + RESUMEN POR ELEMENTO
-    # --------------------------
-    st.markdown("#### Calificación promedio y resumen por elemento")
+    # =====================================================
+    # CARD 1 – Calificación promedio + resumen por elemento
+    # =====================================================
+    st.markdown(
+        "<div class='panel-card'>",
+        unsafe_allow_html=True,
+    )
 
-    c1, c2 = st.columns([1.3, 1.7])
+    # mini métricas arriba
+    m1, m2, m3 = st.columns(3)
+    with m1:
+        st.markdown("**Madurez promedio CCPS**")
+        st.markdown(f"<h3 style='margin:0.1rem 0'>{madurez_global}%</h3>", unsafe_allow_html=True)
+        st.caption(f"Basado en {total_items} ítems del diagnóstico.")
+    with m2:
+        st.markdown("**Brechas críticas**")
+        st.markdown(f"<h3 style='margin:0.1rem 0'>{brechas_criticas}</h3>", unsafe_allow_html=True)
+        st.caption("Ítems con calificación Muy bajo / Bajo.")
+    with m3:
+        st.markdown("**Instalación**")
+        st.markdown(
+            f"<h4 style='margin:0.1rem 0'>{instalacion_activa}</h4>",
+            unsafe_allow_html=True,
+        )
+        st.caption("Contexto actual del diagnóstico.")
 
-    # --------- IZQUIERDA: GRÁFICA TIPO "pilar" / "20 elementos" ----------
+    st.markdown("---")
+
+    c1, c2 = st.columns([1.2, 1.8])
+
+    # --------- IZQUIERDA: GRÁFICA TIPO PILAR / ELEMENTO ----------
     with c1:
-        st.markdown("**Calificación promedio**")
+        st.markdown(
+            """
+            <div class="panel-header">
+              <div class="panel-header-title">Calificación promedio</div>
+              <div class="panel-header-sub">Explora por pilar o por elemento</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         modo_grafica = st.radio(
             "Ver promedio por:",
             options=["Pilar CCPS", "Elemento CCPS"],
             horizontal=True,
+            label_visibility="collapsed",
         )
 
-        if modo_grafica == "Pilar CCPS":
-            df_plot = df_filtrado.copy()
-            if df_plot.empty:
-                st.info("No hay datos para el filtro seleccionado (demo).")
-            else:
-                df_plot["score"] = df_plot["calificacion"].apply(calificacion_to_score)
+        df_plot = df_filtrado.copy()
+        if df_plot.empty:
+            st.info("No hay datos para el filtro seleccionado (demo).")
+        else:
+            df_plot["score"] = df_plot["calificacion"].apply(calificacion_to_score)
+
+            if modo_grafica == "Pilar CCPS":
                 df_plot = df_plot.groupby("pilar", as_index=False)["score"].mean()
                 df_plot["score"] = df_plot["score"].round(1)
-
                 chart = (
                     alt.Chart(df_plot)
                     .mark_bar()
@@ -842,20 +901,14 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
                             title="Nivel de madurez (%)",
                             scale=alt.Scale(domain=[0, 100]),
                         ),
+                        color=alt.value("#FBBF24"),
                         tooltip=["pilar", "score"],
                     )
                     .properties(height=260)
                 )
-                st.altair_chart(chart, use_container_width=True)
-        else:
-            df_plot = df_filtrado.copy()
-            if df_plot.empty:
-                st.info("No hay datos para el filtro seleccionado (demo).")
             else:
-                df_plot["score"] = df_plot["calificacion"].apply(calificacion_to_score)
                 df_plot = df_plot.groupby("elemento", as_index=False)["score"].mean()
                 df_plot["score"] = df_plot["score"].round(1)
-
                 chart = (
                     alt.Chart(df_plot)
                     .mark_bar()
@@ -866,70 +919,86 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
                             scale=alt.Scale(domain=[0, 100]),
                         ),
                         y=alt.Y("elemento:N", title="Elemento CCPS", sort="-x"),
+                        color=alt.value("#FBBF24"),
                         tooltip=["elemento", "score"],
                     )
                     .properties(height=260)
                 )
-                st.altair_chart(chart, use_container_width=True)
+
+            st.altair_chart(chart, use_container_width=True)
 
         st.caption(
-            "TIP: con un clic cambia entre vista por pilar y por elementos para explorar el diagnóstico."
+            "TIP: cambia entre pilar y elemento para ver dónde se concentran las brechas."
         )
 
-    # --------- DERECHA: RESUMEN POR ELEMENTO (tipo tabla con % de implementación) ----------
+    # --------- DERECHA: TABLA RESUMEN POR ELEMENTO ----------
     with c2:
-        st.markdown("**Resumen por elemento**")
+        st.markdown(
+            """
+            <div class="panel-header">
+              <div class="panel-header-title">Resumen por elemento</div>
+              <div class="panel-header-sub">Promedio y nivel de implementación (demo)</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         df_resumen_elem = build_resumen_elementos(df_filtrado)
         if df_resumen_elem.empty:
             st.info("No hay datos para construir el resumen (demo).")
         else:
-            # Usamos Styler para simular barras de avance en las columnas de %.
-            df_styled = (
-                df_resumen_elem.style.format(
-                    {
-                        "Promedio": "{:.2f}",
-                        "Impl. completa": "{:.2f}%",
-                        "Impl. parcial (toda)": "{:.2f}%",
-                        "Impl. parcial (algunas)": "{:.2f}%",
-                        "No implementado": "{:.2f}%",
-                        "No aplica": "{:.2f}%",
-                    }
-                )
-                .bar(
-                    subset=[
-                        "Impl. completa",
-                        "Impl. parcial (toda)",
-                        "Impl. parcial (algunas)",
-                        "No implementado",
-                        "No aplica",
-                    ],
-                    align="left",
-                )
+            df_show = df_resumen_elem.rename(
+                columns={
+                    "Elemento": "Elemento",
+                    "Promedio": "Promedio",
+                    "Impl. completa": "Impl. completa",
+                    "Impl. parcial (toda)": "Impl. parcial en toda la compañía",
+                    "Impl. parcial (algunas)": "Impl. parcial en algunas plantas",
+                    "No implementado": "No implementado",
+                    "No aplica": "No aplica",
+                }
             )
-            st.dataframe(df_styled, use_container_width=True, hide_index=True)
+            st.dataframe(
+                df_show,
+                use_container_width=True,
+                hide_index=True,
+            )
 
-    st.markdown("---")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # --------------------------
-    # SEGUNDA SECCIÓN: GRÁFICA DE CULTURA
-    # --------------------------
-    st.markdown("#### Cultura de Seguridad de Procesos")
+    # =====================================================
+    # CARD 2 – Cultura + simulador de impacto
+    # =====================================================
+    st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+
+    st.markdown(
+        """
+        <div class="panel-header">
+          <div class="panel-header-title">Cultura de Seguridad de Procesos</div>
+          <div class="panel-header-sub">
+            Percepción, reporte y aprendizaje (simulación demo)
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     cc1, cc2 = st.columns([1.2, 1.8])
 
+    # --------- IZQUIERDA: GRÁFICA CULTURA ----------
     with cc1:
         st.markdown("**Distribución de cultura (demo)**")
 
         df_cultura = df_filtrado[
             df_filtrado["elemento"] == "Cultura de Seguridad de Procesos"
         ].copy()
+
         if df_cultura.empty:
-            # si no hay datos reales, armamos algo ficticio pero coherente
+            # si no hay datos reales, armamos dimensiones ficticias pero creíbles
             df_cultura = pd.DataFrame(
                 {
                     "dimensión": [
-                        "Reporta incidentes",
+                        "Reporte de incidentes",
                         "Aprendizaje de errores",
                         "Participación en PHA",
                         "Confianza en el sistema",
@@ -943,13 +1012,14 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
                 .encode(
                     x=alt.X(
                         "nivel:Q",
-                        title="Nivel de cultura (%)",
+                        title="Nivel (%)",
                         scale=alt.Scale(domain=[0, 100]),
                     ),
-                    y=alt.Y("dimensión:N", title="Dimensión cultural", sort="-x"),
+                    y=alt.Y("dimensión:N", sort="-x", title="Dimensión cultural"),
+                    color=alt.value("#0EA5E9"),
                     tooltip=["dimensión", "nivel"],
                 )
-                .properties(height=220)
+                .properties(height=1000)
             )
         else:
             dist = (
@@ -964,6 +1034,7 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
                 .encode(
                     x=alt.X("Calificación:N"),
                     y=alt.Y("Cantidad:Q"),
+                    color=alt.value("#0EA5E9"),
                     tooltip=["Calificación", "Cantidad"],
                 )
                 .properties(height=220)
@@ -971,18 +1042,16 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
 
         st.altair_chart(chart_cult, use_container_width=True)
         st.caption(
-            "Esta vista puede evolucionar a indicadores específicos de cultura (encuestas, observaciones, etc.)."
+            "En la versión completa, aquí se verían resultados de encuestas, observaciones y reportes de cultura."
         )
 
-    # --------------------------
-    # TERCERA COSA “SUPER COOL”: SIMULADOR DE MEJORA
-    # --------------------------
+    # --------- DERECHA: SIMULADOR “COOL” ----------
     with cc2:
         st.markdown("**Simulador de impacto de mejora (demo)**")
 
         st.write(
-            "Imagina que cierras parte de las brechas críticas (Muy bajo / Bajo). "
-            "Ajusta el control y mira cómo podría mejorar la madurez global."
+            "Mueve el control para simular qué pasa si cierras un porcentaje de las brechas "
+            "críticas (Muy bajo / Bajo) en los próximos meses."
         )
 
         porcentaje_mejora = st.slider(
@@ -993,8 +1062,7 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
             step=10,
         )
 
-        # Cálculo simplificado del impacto: por cada 10% de brechas cerradas,
-        # sube 3 puntos la madurez, limitado a 100.
+        # modelo simplificado: cada 10 % de brechas cerradas suma 3 puntos de madurez
         impacto = porcentaje_mejora * 0.3
         madurez_nueva = min(100.0, round(madurez_global + impacto, 1))
 
@@ -1010,7 +1078,12 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
             .mark_bar()
             .encode(
                 x=alt.X("Escenario:N", title="Escenario"),
-                y=alt.Y("Madurez:Q", title="Madurez CCPS (%)", scale=alt.Scale(domain=[0, 100])),
+                y=alt.Y(
+                    "Madurez:Q",
+                    title="Madurez CCPS (%)",
+                    scale=alt.Scale(domain=[0, 100]),
+                ),
+                color=alt.value("#10B981"),
                 tooltip=["Escenario", "Madurez"],
             )
             .properties(height=220)
@@ -1022,9 +1095,11 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
             f"- Madurez simulada con la mejora seleccionada: **{madurez_nueva}%**"
         )
         st.caption(
-            "En la versión real, este simulador usaría los ítems específicos que cierres en el plan de acción "
-            "para recalcular la madurez por pilar, elemento e instalación."
+            "En la versión real, el simulador usaría los ítems concretos del plan de acción para recalcular "
+            "la madurez por pilar, elemento e instalación."
         )
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_nodos(instalacion_activa: str):
@@ -1053,18 +1128,6 @@ def render_nodos(instalacion_activa: str):
     if modo_sel == "Lista":
         st.dataframe(df_f, use_container_width=True, hide_index=True)
     else:
-        # 👇 NUEVO: imports locales con manejo de error
-        try:
-            import matplotlib.pyplot as plt
-            import networkx as nx
-        except ImportError:
-            st.warning(
-                "Para ver el grafo necesitas tener instalados `matplotlib` y `networkx`. "
-                "En esta demo en la nube solo se muestra la tabla."
-            )
-            st.dataframe(df_f, use_container_width=True, hide_index=True)
-            return
-
         c1, c2 = st.columns([2, 1])
 
         with c1:
@@ -1107,8 +1170,29 @@ def render_nodos(instalacion_activa: str):
             st.pyplot(fig, use_container_width=True)
 
         with c2:
-        
+            st.markdown('<div class="section-title">Detalle de nodo (simulación de clic)</div>', unsafe_allow_html=True)
+            if df_f.empty:
+                st.info("No hay nodos para mostrar con los filtros actuales (demo).")
+                return
 
+            nodo_sel = st.selectbox("Selecciona un nodo principal", options=df_f["id"].tolist())
+            nodo_row = df_f[df_f["id"] == nodo_sel].iloc[0]
+
+            st.markdown(f"**{nodo_row['id']} – {nodo_row['tipo']} ({nodo_row['riesgo']})**")
+            st.write(f"- Instalación: `{nodo_row['instalacion']}`")
+            st.write(f"- Pilar asociado: `{nodo_row['pilar']}`")
+            st.write(f"- Descripción: {nodo_row['descripcion']}")
+
+            rels = [r.strip() for r in str(nodo_row["relacionados"]).split("|") if r.strip()]
+            st.markdown("**Nodos relacionados (diagnóstico, acción, requisito):**")
+            for r in rels:
+                st.write(f"- {r}")
+
+            st.info(
+                "DEMO: piensa esto como si hubieras hecho clic en el nodo del grafo. "
+                "En la versión completa, aquí se integraría el detalle del PHA, "
+                "planes de acción y requisitos normativos vinculados."
+            )
 
 # =========================================================
 # INFORME – AQUÍ VIENE LA PARTE CRÍTICA DEL % DE AVANCE
