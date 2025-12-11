@@ -7,6 +7,13 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import networkx as nx  # pip install networkx
 
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).parent
+IMG_DIR = BASE_DIR / "imagenes"
+
+
 # =========================================================
 # CONFIG GENERAL
 # =========================================================
@@ -31,7 +38,7 @@ st.markdown(
         background-color: {BG};
     }}
     .block-container {{
-        padding-top: 0.5rem;
+        padding-top: 3.5rem !important;   /* antes 0.5rem */
         padding-bottom: 2rem;
         max-width: 1400px;
     }}
@@ -68,7 +75,23 @@ st.markdown(
         border: 1px solid #E3E7EF;
         box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
     }}
-        .panel-card {{
+    .metric-title {{
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 0.1rem;
+    }}
+    .metric-value {{
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #111827;
+        margin-bottom: 0.1rem;
+    }}
+    .metric-sub {{
+        font-size: 0.75rem;
+        color: #6B7280;
+    }}
+    .panel-card {{
         background-color: #FFFFFF;
         padding: 1.2rem 1.4rem;
         border-radius: 1rem;
@@ -445,6 +468,151 @@ def prioridades_desde_diag(df_diag_filtrado: pd.DataFrame, top_n: int = 5) -> pd
     return pd.DataFrame(prioridades)
 
 
+def get_dummy_condiciones_para_estudio(id_estudio: str) -> pd.DataFrame:
+    """
+    DEMO: condiciones/escenarios, causas, consecuencias, salvaguardas y acciones
+    asociadas a cada estudio.
+    En producción esto vendría de tus PHA/HAZOP/LOPA reales.
+    """
+    base = [
+        # Estudio E-001 – HAZOP Reactor 1
+        {
+            "id_estudio": "E-001",
+            "id_condicion": "C-001",
+            "condicion": "Sobrepresión en R-101 por bloqueo aguas abajo.",
+            "causa": "Cierre inadvertido de válvula de salida / fallo del control de caudal.",
+            "consecuencia": "Disparo de PSV, posible descarga a antorcha y liberación a la atmósfera.",
+            "salvaguardas": "PSV en R-101, alarmas de alta presión, procedimiento de arranque.",
+            "accion_sugerida": "Reforzar entrenamiento en arranque/parada y actualizar procedimiento operativo.",
+            "tipo_accion": "General (procedimiento / entrenamiento)",
+            "criticidad": "Alta",
+            "estado_accion": "Pendiente"
+        },
+        {
+            "id_estudio": "E-001",
+            "id_condicion": "C-002",
+            "condicion": "Sobrepresión en R-101 por reacción fuera de control.",
+            "causa": "Sobredosis de reactivo / fallo de control de temperatura.",
+            "consecuencia": "Liberación de energía, posible daño al reactor y fuga de producto.",
+            "salvaguardas": "Control de temperatura, interlock de parada de alimentación.",
+            "accion_sugerida": "Evaluar necesidad de interlock independiente de alta temperatura (SIS).",
+            "tipo_accion": "Trabajo en equipo (diseño / inversión)",
+            "criticidad": "Muy alta",
+            "estado_accion": "En análisis"
+        },
+        {
+            "id_estudio": "E-001",
+            "id_condicion": "C-003",
+            "condicion": "Pérdida de contención en bridas de R-101.",
+            "causa": "Ajuste deficiente / corrosión.",
+            "consecuencia": "Fuga de solvente inflamable al área de reactor.",
+            "salvaguardas": "Programas de inspección, bandejas de contención, detectores de gas.",
+            "accion_sugerida": "Reforzar programa de inspección visual y torqueado de bridas críticas.",
+            "tipo_accion": "General (mantenimiento / rutina)",
+            "criticidad": "Media",
+            "estado_accion": "En ejecución"
+        },
+
+        # Estudio E-002 – LOPA PSV R-101
+        {
+            "id_estudio": "E-002",
+            "id_condicion": "C-004",
+            "condicion": "Demanda frecuente al PSV de R-101.",
+            "causa": "Operación cercana al límite de capacidad / ajustes de control.",
+            "consecuencia": "Desgaste acelerado del PSV y mayor probabilidad de fallo.",
+            "salvaguardas": "PSV dimensionado, monitoreo de disparos.",
+            "accion_sugerida": "Analizar datos históricos de disparos y optimizar puntos de operación.",
+            "tipo_accion": "Trabajo en equipo (operación / proceso)",
+            "criticidad": "Alta",
+            "estado_accion": "Sin iniciar"
+        },
+        {
+            "id_estudio": "E-002",
+            "id_condicion": "C-005",
+            "condicion": "PSV descargando hacia sistema de antorcha en mantenimiento.",
+            "causa": "Mantenimiento simultáneo de antorcha y operación del reactor.",
+            "consecuencia": "Riesgo de liberación directa a atmósfera.",
+            "salvaguardas": "Procedimiento de bloqueo de operación durante mantenimiento de antorcha.",
+            "accion_sugerida": "Reforzar cumplimiento del procedimiento y validación en permisos de trabajo.",
+            "tipo_accion": "General (permisos de trabajo / coordinación)",
+            "criticidad": "Alta",
+            "estado_accion": "Pendiente"
+        },
+
+        # Estudio E-003 – What-if tanques
+        {
+            "id_estudio": "E-003",
+            "id_condicion": "C-006",
+            "condicion": "Sobrellenado de TK-201-ESF durante recepción.",
+            "causa": "Fallo de medición de nivel / error de comunicación operador-bombero.",
+            "consecuencia": "Derrame de producto inflamable en dique.",
+            "salvaguardas": "Alarmas de alto nivel, procedimientos de recepción.",
+            "accion_sugerida": "Estandarizar checklist de recepción y entrenamiento de contratistas.",
+            "tipo_accion": "General (procedimiento / contratistas)",
+            "criticidad": "Alta",
+            "estado_accion": "Pendiente"
+        },
+
+        # Estudio E-004 – QRA planta reactores
+        {
+            "id_estudio": "E-004",
+            "id_condicion": "C-007",
+            "condicion": "Explosión en reactor con afectación a oficinas administrativas.",
+            "causa": "Falla múltiple en sistemas de protección / ubicación de personas expuestas.",
+            "consecuencia": "Daño estructural y afectación a personas en edificios cercanos.",
+            "salvaguardas": "Diseño de reactor, barreras físicas, rutas de evacuación.",
+            "accion_sugerida": "Revisar ubicación de oficinas y aplicar criterios de facility siting.",
+            "tipo_accion": "Trabajo en equipo (layout / facility siting)",
+            "criticidad": "Muy alta",
+            "estado_accion": "Pendiente"
+        },
+    ]
+
+    df = pd.DataFrame(base)
+    df_sel = df[df["id_estudio"] == id_estudio].copy()
+    return df_sel.reset_index(drop=True)
+
+
+def clasificar_acciones_riesgos(df_condiciones: pd.DataFrame):
+    """
+    Clasifica acciones en:
+    - Generales (estandarizables / de aplicación amplia)
+    - Trabajo en equipo (requieren análisis conjunto, diseño, inversión, etc.)
+    y arma un texto "tipo agente".
+    """
+    if df_condiciones.empty:
+        return "[DEMO SKUDO] No hay condiciones cargadas para este estudio.", pd.DataFrame(), pd.DataFrame()
+
+    df_gen = df_condiciones[df_condiciones["tipo_accion"].str.contains("General", case=False, na=False)].copy()
+    df_team = df_condiciones[df_condiciones["tipo_accion"].str.contains("Trabajo en equipo", case=False, na=False)].copy()
+
+    texto = "🔍 **[DEMO SKUDO] Análisis de acciones del estudio seleccionado**\n\n"
+
+    texto += f"- Condiciones totales analizadas: **{len(df_condiciones)}**\n"
+    texto += f"- Acciones típicas / generales: **{len(df_gen)}**\n"
+    texto += f"- Acciones que requieren trabajo en equipo: **{len(df_team)}**\n\n"
+
+    if not df_gen.empty:
+        texto += "**Acciones generales que podrían estandarizarse (procedimientos, entrenamiento, mantenimiento):**\n"
+        for _, r in df_gen.head(4).iterrows():
+            texto += f"- {r['accion_sugerida']}  \n"
+        texto += "\n"
+
+    if not df_team.empty:
+        texto += "**Acciones que conviene trabajar en equipo (proceso, operación, ingeniería, HSE):**\n"
+        for _, r in df_team.head(4).iterrows():
+            texto += f"- {r['accion_sugerida']}  \n"
+        texto += "\n"
+
+    texto += (
+        "_En la versión completa, SKUDO agruparía automáticamente patrones de causas, "
+        "consecuencias y acciones para proponer estándares corporativos y agendas de "
+        "reunión de riesgo específicas._"
+    )
+
+    return texto, df_gen, df_team
+
+
 def sugerir_estudio_y_estudios(contexto: dict, df_estudios_base: pd.DataFrame, df_nodos_base: pd.DataFrame):
     """
     Dado el contexto del problema (instalación, unidad, equipo, descripción, tipo_situacion, fase),
@@ -590,6 +758,410 @@ He encontrado **{len(df_rel)} estudio(s)** histórico(s) potencialmente relevant
     return texto, df_rel, nodos_rel_ids
 
 
+def get_dummy_riesgos_por_estudios(estudios_ids: list[str]) -> pd.DataFrame:
+    """
+    DEMO: Escenarios de riesgo de proceso consolidados por estudio.
+    En producción esto vendría de tus hojas PHA/HAZOP/LOPA/QRA.
+    """
+
+    base = [
+        # E-001 – HAZOP Reactor 1
+        {
+            "id_estudio": "E-001",
+            "id_escenario": "RP-001",
+            "instalacion": "Planta Mezclas Norte",
+            "unidad": "Reactor 1",
+            "equipo": "R-101",
+            "descripcion_escenario": "Sobrepresión en R-101 por bloqueo aguas abajo.",
+            "tipo_peligro": "Presión / Integridad mecánica",
+            "fase_operativa": "Operación normal",
+            "causa_principal": "Cierre inadvertido de válvula de salida o fallo del control de caudal.",
+            "consecuencia_principal": "Disparo frecuente del PSV y posible descarga a antorcha / atmósfera.",
+            "salvaguardas_clave": "PSV en R-101, alarmas de alta presión, procedimiento de operación.",
+            "severidad": 4,
+            "frecuencia": 3,
+            "riesgo_residual": 12,
+            "nivel_riesgo": "Alto",
+            "accion_sugerida": "Reforzar entrenamiento en arranque/parada y actualizar procedimiento operativo.",
+            "tipo_accion": "General",
+            "clase_accion": "Procedimientos / Entrenamiento",
+            "estado_accion": "Pendiente"
+        },
+        {
+            "id_estudio": "E-001",
+            "id_escenario": "RP-002",
+            "instalacion": "Planta Mezclas Norte",
+            "unidad": "Reactor 1",
+            "equipo": "R-101",
+            "descripcion_escenario": "Reacción fuera de control en R-101 con aumento de presión y temperatura.",
+            "tipo_peligro": "Reacción fuera de control",
+            "fase_operativa": "Operación / Upset",
+            "causa_principal": "Sobredosis de reactivo o fallo del control de temperatura.",
+            "consecuencia_principal": "Liberación de energía, posible fallo de contención y fuga de producto.",
+            "salvaguardas_clave": "Control de temperatura, interlock de parada de alimentación, PSV.",
+            "severidad": 5,
+            "frecuencia": 2,
+            "riesgo_residual": 10,
+            "nivel_riesgo": "Alto",
+            "accion_sugerida": "Evaluar necesidad de interlock independiente de alta temperatura (SIS) y revisión de diseño.",
+            "tipo_accion": "Trabajo en equipo",
+            "clase_accion": "Ingeniería / Diseño / SIS",
+            "estado_accion": "En análisis"
+        },
+        {
+            "id_estudio": "E-001",
+            "id_escenario": "RP-003",
+            "instalacion": "Planta Mezclas Norte",
+            "unidad": "Reactor 1",
+            "equipo": "R-101 / Bridas",
+            "descripcion_escenario": "Fuga en bridas de R-101 por corrosión o torque inadecuado.",
+            "tipo_peligro": "Fuga inflamable",
+            "fase_operativa": "Operación",
+            "causa_principal": "Corrosión, malas prácticas de montaje, ausencia de torqueado controlado.",
+            "consecuencia_principal": "Fuga de solvente inflamable en área de reactor.",
+            "salvaguardas_clave": "Programa de inspección, detectores de gas, bandejas de contención.",
+            "severidad": 3,
+            "frecuencia": 3,
+            "riesgo_residual": 9,
+            "nivel_riesgo": "Medio",
+            "accion_sugerida": "Reforzar programa de inspección y torqueado de bridas críticas.",
+            "tipo_accion": "General",
+            "clase_accion": "Mantenimiento / Integridad",
+            "estado_accion": "En ejecución"
+        },
+
+        # E-002 – LOPA PSV R-101
+        {
+            "id_estudio": "E-002",
+            "id_escenario": "RP-004",
+            "instalacion": "Planta Mezclas Norte",
+            "unidad": "Reactor 1",
+            "equipo": "R-101 / PSV",
+            "descripcion_escenario": "Demanda frecuente al PSV de R-101 por operación cerca del límite.",
+            "tipo_peligro": "Sobrepresión / Operación",
+            "fase_operativa": "Operación",
+            "causa_principal": "Ajustes de control y estrategia de operación cercana al máximo caudal.",
+            "consecuencia_principal": "Desgaste acelerado del PSV y mayor probabilidad de fallo en demanda.",
+            "salvaguardas_clave": "PSV dimensionado, monitoreo de disparos, alarmas de alta presión.",
+            "severidad": 3,
+            "frecuencia": 4,
+            "riesgo_residual": 12,
+            "nivel_riesgo": "Alto",
+            "accion_sugerida": "Analizar datos históricos de disparos y optimizar puntos de operación junto con operación y proceso.",
+            "tipo_accion": "Trabajo en equipo",
+            "clase_accion": "Operación / Optimización",
+            "estado_accion": "Sin iniciar"
+        },
+        {
+            "id_estudio": "E-002",
+            "id_escenario": "RP-005",
+            "instalacion": "Planta Mezclas Norte",
+            "unidad": "Reactor 1 / Antorcha",
+            "equipo": "Sistema de descarga",
+            "descripcion_escenario": "PSV descargando hacia antorcha cuando esta está en mantenimiento.",
+            "tipo_peligro": "Descarga / Gestión de cambios",
+            "fase_operativa": "Mantenimiento",
+            "causa_principal": "Mantenimiento simultáneo de antorcha con operación del reactor.",
+            "consecuencia_principal": "Riesgo de liberación directa a atmósfera.",
+            "salvaguardas_clave": "Procedimiento de bloqueo de operación durante mantenimiento de antorcha.",
+            "severidad": 4,
+            "frecuencia": 2,
+            "riesgo_residual": 8,
+            "nivel_riesgo": "Medio",
+            "accion_sugerida": "Reforzar cumplimiento del procedimiento en permisos de trabajo y coordinaciones de mantenimiento.",
+            "tipo_accion": "General",
+            "clase_accion": "Permisos de trabajo / Coordinación",
+            "estado_accion": "Pendiente"
+        },
+
+        # E-003 – What-if tanques
+        {
+            "id_estudio": "E-003",
+            "id_escenario": "RP-006",
+            "instalacion": "Terminal Almacenamiento Sur",
+            "unidad": "Área de tanques",
+            "equipo": "TK-201-ESF",
+            "descripcion_escenario": "Sobrellenado de TK-201-ESF durante recepción de producto.",
+            "tipo_peligro": "Sobrellenado / Derrame",
+            "fase_operativa": "Operación / Recepción",
+            "causa_principal": "Fallo de medición de nivel o error de comunicación operador–contratista.",
+            "consecuencia_principal": "Derrame de producto inflamable en dique.",
+            "salvaguardas_clave": "Alarmas de alto nivel, procedimientos de recepción, diques de contención.",
+            "severidad": 4,
+            "frecuencia": 3,
+            "riesgo_residual": 12,
+            "nivel_riesgo": "Alto",
+            "accion_sugerida": "Estandarizar checklist de recepción y entrenamiento de contratistas.",
+            "tipo_accion": "General",
+            "clase_accion": "Contratistas / Procedimientos",
+            "estado_accion": "Pendiente"
+        },
+
+        # E-004 – QRA planta reactores
+        {
+            "id_estudio": "E-004",
+            "id_escenario": "RP-007",
+            "instalacion": "Planta Reactores Oriente",
+            "unidad": "Complejo de reactores",
+            "equipo": "Reactores / Edificios",
+            "descripcion_escenario": "Explosión en reactor con afectación a oficinas administrativas cercanas.",
+            "tipo_peligro": "Explosión / Ubicación de personas",
+            "fase_operativa": "Operación",
+            "causa_principal": "Falla múltiple en sistemas de protección y ubicación de personal en zona de afectación.",
+            "consecuencia_principal": "Daño estructural y afectación a personas en edificios cercanos.",
+            "salvaguardas_clave": "Diseño de reactor, barreras físicas, rutas de evacuación, PEC.",
+            "severidad": 5,
+            "frecuencia": 2,
+            "riesgo_residual": 10,
+            "nivel_riesgo": "Alto",
+            "accion_sugerida": "Revisar ubicación de oficinas (facility siting) y definir medidas de relocalización o refuerzo.",
+            "tipo_accion": "Trabajo en equipo",
+            "clase_accion": "Layout / Facility siting",
+            "estado_accion": "Pendiente"
+        },
+    ]
+
+    df = pd.DataFrame(base)
+    if estudios_ids:
+        df = df[df["id_estudio"].isin(estudios_ids)]
+    return df.reset_index(drop=True)
+
+
+def resumir_riesgos_y_acciones(df_rp: pd.DataFrame) -> dict:
+    """
+    Calcula métricas generales para la vista de análisis de riesgos de procesos.
+    """
+    if df_rp.empty:
+        return {
+            "n_escenarios": 0,
+            "n_generales": 0,
+            "n_equipo": 0,
+            "prom_riesgo_residual": 0.0,
+            "top_peligros": [],
+        }
+
+    n_escenarios = len(df_rp)
+    n_generales = int((df_rp["tipo_accion"] == "General").sum())
+    n_equipo = int((df_rp["tipo_accion"] == "Trabajo en equipo").sum())
+    prom_riesgo = round(df_rp["riesgo_residual"].mean(), 1)
+
+    top_peligros = (
+        df_rp["tipo_peligro"]
+        .value_counts()
+        .head(3)
+        .index
+        .tolist()
+    )
+
+    return {
+        "n_escenarios": n_escenarios,
+        "n_generales": n_generales,
+        "n_equipo": n_equipo,
+        "prom_riesgo_residual": prom_riesgo,
+        "top_peligros": top_peligros,
+    }
+
+
+def agrupar_acciones_generales(df_rp: pd.DataFrame) -> pd.DataFrame:
+    """
+    Agrupa acciones generales por clase/tema para ver patrones que se pueden
+    convertir en estándares corporativos.
+    """
+    df_gen = df_rp[df_rp["tipo_accion"] == "General"].copy()
+    if df_gen.empty:
+        return pd.DataFrame()
+
+    df_gen["tema_accion"] = df_gen["clase_accion"]
+    resumen = (
+        df_gen.groupby("tema_accion")
+        .agg(
+            n_acciones=("accion_sugerida", "count"),
+            ejemplos=("accion_sugerida", lambda x: " | ".join(x.head(3)))
+        )
+        .reset_index()
+        .sort_values("n_acciones", ascending=False)
+    )
+    return resumen
+
+
+def clasificar_acciones_rp_agente(df_rp: pd.DataFrame) -> str:
+    """
+    Texto tipo agente que diferencia:
+    - acciones generales,
+    - acciones para trabajar en equipo,
+    y las conecta con riesgos y tipos de peligro.
+    """
+    if df_rp.empty:
+        return (
+            "🔍 **[DEMO SKUDO] Análisis de riesgos de procesos**\n\n"
+            "Todavía no hay escenarios cargados para esta selección. "
+            "Cuando conectes SKUDO a tus PHA/HAZOP/LOPA/QRA, verás aquí el resumen."
+        )
+
+    met = resumir_riesgos_y_acciones(df_rp)
+    df_gen = df_rp[df_rp["tipo_accion"] == "General"]
+    df_team = df_rp[df_rp["tipo_accion"] == "Trabajo en equipo"]
+
+    texto = "🔍 **[DEMO SKUDO] Análisis de riesgos de procesos**\n\n"
+    texto += f"- Escenarios considerados: **{met['n_escenarios']}**\n"
+    texto += f"- Nivel promedio de riesgo residual (S×F): **{met['prom_riesgo_residual']}**\n"
+    texto += f"- Acciones generales: **{met['n_generales']}**\n"
+    texto += f"- Acciones que requieren trabajo en equipo: **{met['n_equipo']}**\n"
+
+    if met["top_peligros"]:
+        texto += (
+            f"- Tipos de peligro más frecuentes: **{', '.join(met['top_peligros'])}**\n\n"
+        )
+    else:
+        texto += "\n"
+
+    if not df_gen.empty:
+        texto += (
+            "**¿Qué podrías estandarizar?**\n"
+            "Las acciones marcadas como **generales** son candidatas a convertir en estándares corporativos:\n"
+            "- Procedimientos tipo\n"
+            "- Entrenamientos recurrentes\n"
+            "- Rutinas de mantenimiento / inspección\n\n"
+        )
+
+    if not df_team.empty:
+        texto += (
+            "**¿Qué requiere taller de equipo?**\n"
+            "Las acciones marcadas como **trabajo en equipo** son las que conviene llevar a un comité o taller, "
+            "porque implican decisiones de diseño, inversión o cambios de operación relevantes.\n\n"
+        )
+
+    texto += (
+        "_En la versión completa, SKUDO usaría estos patrones para proponer catálogos de acciones estándar y "
+        "agendas automáticas para reuniones de análisis de riesgo._"
+    )
+
+    return texto
+
+
+def sugerir_consecuencias_y_salvaguardas_por_causa(causa_texto: str, df_hist: pd.DataFrame):
+    """
+    Dado un texto de causa (del estudio actual), busca en TODO el histórico
+    de riesgos de proceso causas similares y sugiere consecuencias y salvaguardas
+    típicas, más temas para trabajo en equipo.
+
+    DEMO: usa una similitud muy sencilla por palabras clave.
+    """
+    causa = (causa_texto or "").strip()
+    if not causa:
+        return (
+            "✏️ Escribe una causa para que SKUDO busque patrones en el histórico.",
+            pd.DataFrame()
+        )
+
+    if df_hist.empty:
+        return (
+            "No hay histórico de riesgos de proceso cargado en esta DEMO. "
+            "Cuando conectes SKUDO a tus PHA/HAZOP/LOPA/QRA, se utilizará esa base.",
+            pd.DataFrame()
+        )
+
+    causa_tokens = [
+        w.lower() for w in causa.split()
+        if len(w) >= 4
+    ]
+
+    if not causa_tokens:
+        return (
+            "La causa es demasiado corta o genérica. Intenta describirla con más detalle "
+            "(ej. 'sobrepresión por bloqueo aguas abajo', 'fuga por corrosión en bridas críticas').",
+            pd.DataFrame()
+        )
+
+    df = df_hist.copy()
+
+    def score_row(row):
+        texto = (
+            str(row.get("causa_principal", "")) + " " +
+            str(row.get("descripcion_escenario", "")) + " " +
+            str(row.get("tipo_peligro", ""))
+        ).lower()
+        score = 0
+        for t in causa_tokens:
+            if t in texto:
+                score += 1
+        return score
+
+    df["sim_score"] = df.apply(score_row, axis=1)
+    df_match = df[df["sim_score"] >= 1].copy()
+
+    if df_match.empty:
+        return (
+            "No encontré causas similares en el histórico DEMO. "
+            "En la versión real, se usarán modelos más avanzados para encontrar patrones.",
+            pd.DataFrame()
+        )
+
+    # Ordenar por similitud y riesgo
+    df_match = df_match.sort_values(
+        ["sim_score", "riesgo_residual"],
+        ascending=[False, False]
+    ).head(10)
+
+    # Consecuencias y salvaguardas típicas
+    consecuencias = (
+        df_match["consecuencia_principal"]
+        .dropna()
+        .drop_duplicates()
+        .tolist()
+    )
+    salvaguardas = (
+        df_match["salvaguardas_clave"]
+        .dropna()
+        .drop_duplicates()
+        .tolist()
+    )
+
+    # Qué tipo de acciones suelen acompañar estas causas
+    acciones_team = df_match[df_match["tipo_accion"] == "Trabajo en equipo"]["accion_sugerida"].tolist()
+    acciones_gen = df_match[df_match["tipo_accion"] == "General"]["accion_sugerida"].tolist()
+
+    texto = "🤖 **[DEMO SKUDO] Patrones históricos para la causa propuesta**\n\n"
+    texto += f"Causa que quieres analizar:\n> {causa_texto}\n\n"
+    texto += f"He encontrado **{len(df_match)}** escenarios con causas/peligros similares en el histórico.\n\n"
+
+    if consecuencias:
+        texto += "**Consecuencias típicas observadas en casos similares:**\n"
+        for c in consecuencias[:5]:
+            texto += f"- {c}\n"
+        texto += "\n"
+
+    if salvaguardas:
+        texto += "**Salvaguardas típicas que se han usado en estos casos:**\n"
+        for s in salvaguardas[:5]:
+            texto += f"- {s}\n"
+        texto += "\n"
+
+    if acciones_team:
+        texto += (
+            "**Temas de trabajo en equipo que suelen aparecer en estos casos:**\n"
+        )
+        for a in acciones_team[:5]:
+            texto += f"- {a}\n"
+        texto += "\n"
+    elif acciones_gen:
+        texto += (
+            "**Acciones generales frecuentes en casos similares (que podrían convertirse en estándar):**\n"
+        )
+        for a in acciones_gen[:5]:
+            texto += f"- {a}\n"
+        texto += "\n"
+
+    texto += (
+        "_Siguiente paso para la sesión de equipo:_\n"
+        "- Validar si estas consecuencias aplican a tu escenario.\n"
+        "- Confirmar qué salvaguardas existen realmente y si son suficientes.\n"
+        "- Definir si se requieren salvaguardas adicionales (SIS, cambios de diseño, límites operativos, etc.)."
+    )
+
+    return texto, df_match
+
+
 
 def generar_resumen_agente_accion_rapida(accion: str, df_diag: pd.DataFrame, instalacion_activa: str | None, perfil: str):
     df = df_diag.copy()
@@ -662,6 +1234,104 @@ def respuesta_dummy_chat(user_msg: str) -> str:
         "e Informe de Seguridad. Por ahora, la idea es mostrar la estructura del agente."
     )
 
+
+def construir_plan_acciones_generales(df_rp: pd.DataFrame) -> pd.DataFrame:
+    """
+    Construye plan base a partir de acciones marcadas como 'General'.
+    Cada fila es una acción editable que se puede convertir en estándar.
+    """
+    df_gen = df_rp[df_rp["tipo_accion"] == "General"].copy()
+    if df_gen.empty:
+        return pd.DataFrame(columns=[
+            "id_escenario", "id_estudio", "instalacion", "unidad", "equipo",
+            "tema", "accion", "prioridad", "responsable", "plazo", "estado"
+        ])
+
+    plan = df_gen[[
+        "id_escenario", "id_estudio", "instalacion", "unidad", "equipo",
+        "clase_accion", "accion_sugerida", "nivel_riesgo"
+    ]].copy()
+
+    plan = plan.rename(columns={
+        "clase_accion": "tema",
+        "accion_sugerida": "accion",
+        "nivel_riesgo": "prioridad"
+    })
+    plan["responsable"] = ""
+    plan["plazo"] = ""
+    plan["estado"] = "Pendiente"
+
+    return plan.reset_index(drop=True)
+
+
+def construir_plan_trabajo_equipo(df_rp: pd.DataFrame) -> pd.DataFrame:
+    """
+    Construye plan base de temas para trabajar en sesión de equipo
+    (acciones 'Trabajo en equipo').
+    """
+    df_team = df_rp[df_rp["tipo_accion"] == "Trabajo en equipo"].copy()
+    if df_team.empty:
+        return pd.DataFrame(columns=[
+            "id_escenario", "id_estudio", "instalacion", "unidad", "equipo",
+            "asunto_taller", "objetivo", "participantes_sugeridos",
+            "nivel_riesgo", "estado"
+        ])
+
+    plan = df_team[[
+        "id_escenario", "id_estudio", "instalacion", "unidad", "equipo",
+        "accion_sugerida", "nivel_riesgo"
+    ]].copy()
+
+    plan = plan.rename(columns={
+        "accion_sugerida": "asunto_taller"
+    })
+    plan["objetivo"] = ""
+    plan["participantes_sugeridos"] = "Proceso / Operación / Mantenimiento / HSE"
+    plan["estado"] = "Pendiente"
+
+    return plan.reset_index(drop=True)
+
+
+def seleccionar_escenarios_para_taller(df_rp: pd.DataFrame) -> list[str]:
+    """
+    Recomienda qué escenarios trabajar en taller:
+    - primero todos los de 'Trabajo en equipo'
+    - si son pocos, completa con los de riesgo residual más alto.
+    """
+    if df_rp.empty:
+        return []
+
+    ids_team = df_rp[df_rp["tipo_accion"] == "Trabajo en equipo"]["id_escenario"].tolist()
+
+    if len(ids_team) < 3:
+        df_rest = df_rp[~df_rp["id_escenario"].isin(ids_team)].copy()
+        df_rest = df_rest.sort_values("riesgo_residual", ascending=False)
+        extra = df_rest["id_escenario"].head(3 - len(ids_team)).tolist()
+        ids_team = list(dict.fromkeys(ids_team + extra))  # sin duplicados
+
+    return ids_team
+
+
+def filtrar_nodos_relacionados_desde_rp(df_rp: pd.DataFrame, df_nodos_base: pd.DataFrame) -> pd.DataFrame:
+    """
+    Filtra nodos que están relacionados con los escenarios analizados:
+    misma instalación y, si es posible, misma unidad.
+    """
+    if df_rp.empty or df_nodos_base.empty:
+        return pd.DataFrame(columns=df_nodos_base.columns)
+
+    instalaciones = df_rp["instalacion"].dropna().unique().tolist()
+    unidades = df_rp["unidad"].dropna().unique().tolist()
+
+    df = df_nodos_base.copy()
+    mask = df["instalacion"].isin(instalaciones)
+    if unidades:
+        mask &= df["unidad"].isin(unidades)
+
+    return df[mask].reset_index(drop=True)
+
+
+
 # =========================================================
 # COMPONENTES DE PÁGINA (tablero, diagnóstico, nodos) – SIN CAMBIOS GRANDES
 # =========================================================
@@ -686,6 +1356,19 @@ def render_hero(instalacion_activa: str, perfil: str):
         """,
         unsafe_allow_html=True
     )
+
+def metric_card(title: str, value: str, subtitle: str):
+    st.markdown(
+        f"""
+        <div class="metric-card">
+          <div class="metric-title">{title}</div>
+          <div class="metric-value">{value}</div>
+          <div class="metric-sub">{subtitle}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 def render_dashboard(instalacion_activa: str, perfil: str):
     # Cabecera tipo hero (ya la tenías)
@@ -757,47 +1440,47 @@ def render_dashboard(instalacion_activa: str, perfil: str):
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.markdown("**Madurez CCPS promedio**")
-        st.markdown(f"<h3 style='margin:0.2rem 0'>{madurez_global}%</h3>", unsafe_allow_html=True)
+        st.metric(
+            label="Madurez CCPS promedio",
+            value=f"{madurez_global}%"
+        )
         st.caption("Promedio ponderado de calificaciones del diagnóstico.")
-        st.markdown("</div>", unsafe_allow_html=True)
 
     with col2:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.markdown("**Escenarios de riesgo ALTO**")
-        st.markdown(f"<h3 style='margin:0.2rem 0'>{n_escenarios_alto}</h3>", unsafe_allow_html=True)
+        st.metric(
+            label="Escenarios de riesgo ALTO",
+            value=str(n_escenarios_alto)
+        )
         st.caption("Escenarios críticos identificados en nodos (demo).")
-        st.markdown("</div>", unsafe_allow_html=True)
 
     if perfil == "Gerencia":
         with col3:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.markdown("**Cumplimiento normativo (demo)**")
-            st.markdown(f"<h3 style='margin:0.2rem 0'>{cumplimiento_3687}%</h3>", unsafe_allow_html=True)
+            st.metric(
+                label="Cumplimiento normativo (demo)",
+                value=f"{cumplimiento_3687}%"
+            )
             st.caption("Aproximación con base en brechas críticas del diagnóstico.")
-            st.markdown("</div>", unsafe_allow_html=True)
 
         with col4:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.markdown("**Nivel de riesgo global**")
-            st.markdown(f"<h3 style='margin:0.2rem 0'>{etiqueta_riesgo}</h3>", unsafe_allow_html=True)
+            st.metric(
+                label="Nivel de riesgo global",
+                value=etiqueta_riesgo
+            )
             st.caption("Clasificación cualitativa según instalaciones seleccionadas.")
-            st.markdown("</div>", unsafe_allow_html=True)
     else:
         with col3:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.markdown("**Brechas críticas abiertas**")
-            st.markdown(f"<h3 style='margin:0.2rem 0'>{n_brechas_criticas}</h3>", unsafe_allow_html=True)
+            st.metric(
+                label="Brechas críticas abiertas",
+                value=str(n_brechas_criticas)
+            )
             st.caption("Ítems con calificación Muy bajo / Bajo.")
-            st.markdown("</div>", unsafe_allow_html=True)
 
         with col4:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.markdown("**Acciones cerradas (demo)**")
-            st.markdown(f"<h3 style='margin:0.2rem 0'>{porcentaje_cerradas}%</h3>", unsafe_allow_html=True)
+            st.metric(
+                label="Acciones cerradas (demo)",
+                value=f"{porcentaje_cerradas}%"
+            )
             st.caption("Porcentaje de ítems marcados como 'Cerrado'.")
-            st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
 
@@ -1305,9 +1988,8 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-
 def render_nodos(instalacion_activa: str):
-    st.markdown("### Nodos & Estudios – Asistente de estudios y grafo (DEMO)")
+    st.markdown("### Nodos & Estudios – Asistente de estudios y P&ID (DEMO)")
 
     # Base de datos filtrada por instalación
     df_n_base = df_nodos.copy()
@@ -1349,14 +2031,20 @@ def render_nodos(instalacion_activa: str):
         desc_default = st.session_state.get("problema_descripcion", "")
         unidad_default = st.session_state.get("problema_unidad", "")
         equipo_default = st.session_state.get("problema_equipo", "")
-        tipo_default = st.session_state.get("problema_tipo_situacion", "Problema recurrente / desviación operacional")
+        tipo_default = st.session_state.get(
+            "problema_tipo_situacion",
+            "Problema recurrente / desviación operacional"
+        )
         fase_default = st.session_state.get("problema_fase", "Operación")
 
         desc = st.text_area(
             "Describe brevemente el problema o necesidad",
             value=desc_default,
             height=120,
-            placeholder="Ejemplo: 'Tenemos disparos frecuentes del PSV en el reactor R-101 cuando estamos cerca del máximo caudal de alimentación.'",
+            placeholder=(
+                "Ejemplo: 'Tenemos disparos frecuentes del PSV en el reactor R-101 cuando "
+                "estamos cerca del máximo caudal de alimentación.'"
+            ),
         )
         st.session_state["problema_descripcion"] = desc
 
@@ -1437,7 +2125,9 @@ def render_nodos(instalacion_activa: str):
                 "fase": fase,
                 "descripcion": desc,
             }
-            texto, df_est_rel, nodos_rel_ids = sugerir_estudio_y_estudios(contexto, df_e_base, df_n_base)
+            texto, df_est_rel, nodos_rel_ids = sugerir_estudio_y_estudios(
+                contexto, df_e_base, df_n_base
+            )
             st.session_state["nodos_sugerencia_texto"] = texto
             st.session_state["nodos_estudios_rel"] = df_est_rel
             st.session_state["nodos_relevantes_ids"] = nodos_rel_ids
@@ -1455,10 +2145,16 @@ def render_nodos(instalacion_activa: str):
         st.markdown("---")
         st.markdown('<div class="section-title">Contexto activo</div>', unsafe_allow_html=True)
         st.markdown(f"<span class='chip'>Instalación: {instalacion_activa}</span>", unsafe_allow_html=True)
-        if unidad_default:
-            st.markdown(f"<span class='chip'>Unidad: {unidad_default}</span>", unsafe_allow_html=True)
-        if equipo_default:
-            st.markdown(f"<span class='chip'>Equipo: {equipo_default}</span>", unsafe_allow_html=True)
+        if st.session_state.get("problema_unidad"):
+            st.markdown(
+                f"<span class='chip'>Unidad: {st.session_state['problema_unidad']}</span>",
+                unsafe_allow_html=True
+            )
+        if st.session_state.get("problema_equipo"):
+            st.markdown(
+                f"<span class='chip'>Equipo: {st.session_state['problema_equipo']}</span>",
+                unsafe_allow_html=True
+            )
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1501,134 +2197,588 @@ def render_nodos(instalacion_activa: str):
     st.markdown("</div>", unsafe_allow_html=True)
 
     # =====================================================
-    # BLOQUE C – Nodos & grafo de relaciones
+    # BLOQUE C – Nodos & P&ID (vista limpia)
     # =====================================================
+
+    # Config por P&ID: qué imagen usar, qué nodos mostrar y mensaje base del agente
+    pid_configs = {
+        "P&ID 1 – Línea con Nodo 1 y 2": {
+            "file": "Imagen1.png",          # imagen central (nodos 1 y 2)
+            "ids": ["N-001"],
+            "texto_agente": (
+                "Este diagrama muestra una **línea de proceso** con dos nodos principales. "
+                "Es clave revisar escenarios de **sobrepresión y fugas** en la línea, y "
+                "verificar que los dispositivos de alivio y seccionamiento estén cubiertos "
+                "en HAZOP/LOPA y en los procedimientos de operación."
+            ),
+        },
+        "P&ID 2 – Trenes en paralelo (Nodo 1, 2, 5)": {
+            "file": "Imagen2.png",
+            "ids": ["N-002"],
+            "texto_agente": (
+                "Aquí se visualizan **trenes en paralelo**. El foco está en la **consistencia "
+                "de salvaguardas entre trenes** (alarmas, interlocks, válvulas) y en "
+                "estandarizar acciones generales entre ellos: procedimientos, entrenamientos "
+                "y mantenimiento."
+            ),
+        },
+        "P&ID 3 – Columna / sistema con Nodo 2, 5 y 7": {
+            "file": "Imagen0.png",
+            "ids": ["N-003"],
+            "texto_agente": (
+                "Este P&ID representa una **unidad más compleja** conectada con temas de "
+                "**cumplimiento normativo e Informe de Seguridad**. Hay que asegurar que los "
+                "escenarios de accidente mayor estén reflejados en el QRA y en el PEC, y "
+                "definir qué cambios requieren trabajo en equipo (proceso, operación, ingeniería, HSE)."
+            ),
+        },
+    }
+
     st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
     st.markdown(
         """
         <div class="panel-header">
-          <div class="panel-header-title">3. Nodos & relaciones entre escenarios, acciones y requisitos (DEMO)</div>
+          <div class="panel-header-title">3. Nodos & P&ID resaltado (DEMO)</div>
           <div class="panel-header-sub">
-            Visualiza cómo se conectan escenarios de riesgo, acciones del plan y requisitos normativos.
+            Cambia el P&ID y el nodo, y SKUDO ajusta el contexto y las recomendaciones.
           </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    colf1, colf2, colf3 = st.columns(3)
-    with colf1:
-        tipo_sel = st.selectbox(
-            "Tipo de nodo",
-            ["Todos"] + sorted(df_n_base["tipo"].unique().tolist())
-        )
-    with colf2:
-        riesgo_sel = st.selectbox(
-            "Riesgo",
-            ["Todos"] + sorted(df_n_base["riesgo"].unique().tolist())
-        )
-    with colf3:
-        modo_sel = st.selectbox(
-            "Modo de vista",
-            ["Lista", "Relaciones (grafo demo)"],
-            index=1
-        )
+    if df_n_base.empty:
+        st.info("No hay nodos configurados para esta instalación en la DEMO.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
 
-    df_f = df_n_base.copy()
-    if tipo_sel != "Todos":
-        df_f = df_f[df_f["tipo"] == tipo_sel]
-    if riesgo_sel != "Todos":
-        df_f = df_f[df_f["riesgo"] == riesgo_sel]
+    # -------- Selección de P&ID (arriba, horizontal) --------
+    pid_label = st.radio(
+        "Seleccione el P&ID a analizar",
+        options=list(pid_configs.keys()),
+        horizontal=True,
+    )
+    pid_cfg = pid_configs[pid_label]
+
+    ids_pid = pid_cfg["ids"]
+    df_pid = df_n_base[df_n_base["id"].isin(ids_pid)].copy()
+    if df_pid.empty:
+        df_pid = df_n_base.copy()  # fallback por si cambias IDs y se te olvida el mapping
+
+    # -------- Selección de nodo (chips / radio, nada de tabla fea) --------
+    opciones_nodo = []
+    for _, r in df_pid.iterrows():
+        label = f"{r['id']} – {r['tipo']} ({r['riesgo']})"
+        opciones_nodo.append(label)
+
+    nodo_label = st.radio(
+        "Nodo dentro de este P&ID",
+        options=opciones_nodo,
+        horizontal=True,
+    )
+    nodo_sel = nodo_label.split(" – ")[0]
+    nodo_row = df_pid[df_pid["id"] == nodo_sel].iloc[0]
+
+    # -------- Layout principal: izquierda imagen, derecha info + agente --------
+    col_img, col_info = st.columns([2, 1])
+
+    with col_img:
+        ruta_img = IMG_DIR / pid_cfg["file"]
+        try:
+            st.image(
+                str(ruta_img),
+                caption=pid_label,
+                use_column_width=True,
+            )
+        except Exception as e:
+            st.error(
+                f"No pude cargar la imagen '{ruta_img}'. "
+                "Verifica que exista en la carpeta 'imagenes' y que el nombre coincida.\n\n"
+                f"Detalle técnico: {e}"
+            )
+
+    with col_info:
+        st.markdown('<div class="section-title">Detalle del nodo seleccionado</div>', unsafe_allow_html=True)
+        st.markdown(
+            f"**{nodo_row['id']} – {nodo_row['tipo']} ({nodo_row['riesgo']})**"
+        )
+        st.write(f"- Instalación: `{nodo_row['instalacion']}`")
+        st.write(f"- Unidad: `{nodo_row.get('unidad', '')}`")
+        st.write(f"- Equipo: `{nodo_row.get('equipo', '')}`")
+        st.write(f"- Pilar asociado: `{nodo_row['pilar']}`")
+        st.write(f"- Descripción: {nodo_row['descripcion']}")
+
+        rels = [
+            r.strip() for r in str(nodo_row["relacionados"]).split("|") if r.strip()
+        ]
+        if rels:
+            st.markdown("**Nodos / referencias relacionadas (diagnóstico, acciones, requisitos):**")
+            for r in rels:
+                st.write(f"- {r}")
+
+        st.markdown("---")
+        st.markdown('<div class="section-title">Agente SKUDO – Recomendaciones para este nodo</div>', unsafe_allow_html=True)
+
+        # Texto del agente combinando P&ID + nodo
+        texto_nodo = f"""
+- Nivel de riesgo declarado del nodo: **{nodo_row['riesgo']}**  
+- Este nodo está ubicado en **{nodo_row.get('unidad', '')} – {nodo_row.get('equipo', '')}**.  
+- En la versión completa, SKUDO traería las **causas, consecuencias y salvaguardas** de los estudios
+  asociados (PHA/HAZOP/LOPA/QRA) y propondría:
+  - Acciones **generales** que puedan estandarizarse (procedimientos, entrenamientos, mantenimiento).
+  - Temas a tratar en **reuniones de trabajo en equipo** cuando el cambio implique diseño o inversión.
+- Además, vincularía este nodo con el **Informe de Seguridad** para evidenciar cómo se gestionan
+  los escenarios de accidente mayor en esta parte del P&ID.
+        """
+
+        st.markdown(pid_cfg["texto_agente"])
+        st.markdown("")
+        st.markdown(texto_nodo)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_analisis_riesgos_proceso(instalacion_activa: str, perfil: str):
+    st.markdown("### Análisis de riesgos de procesos (DEMO)")
+
+    # -------------------------
+    # 1. Selección de estudios
+    # -------------------------
+    if instalacion_activa == "Todas":
+        df_e = df_estudios.copy()
+    else:
+        df_e = df_estudios[df_estudios["instalacion"] == instalacion_activa].copy()
+
+    st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="panel-header">
+          <div class="panel-header-title">1. Alcance del análisis</div>
+          <div class="panel-header-sub">
+            Elige los estudios desde los que se consolidan los escenarios de riesgo de proceso.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if df_e.empty:
+        st.info(
+            "No hay estudios dummy configurados para esta instalación en la DEMO. "
+            "Cuando conectes SKUDO a tus PHA/HAZOP/LOPA/QRA, aparecerán aquí."
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    df_e = df_e.sort_values(["instalacion", "anio", "tipo"])
+    opciones = []
+    mapping = {}
+    for _, row in df_e.iterrows():
+        label = f"{row['id_estudio']} – {row['tipo']} ({row['anio']}) – {row['instalacion']} / {row['unidad'] or 'Sin unidad'}"
+        opciones.append(label)
+        mapping[label] = row["id_estudio"]
+
+    estudios_sel_labels = st.multiselect(
+        "Estudios a considerar",
+        options=opciones,
+        default=opciones[:1]
+    )
+    estudios_sel_ids = [mapping[l] for l in estudios_sel_labels]
+
+    incluir_todos = st.checkbox(
+        "Incluir también otros estudios de la instalación como contexto (DEMO)",
+        value=False
+    )
+    if incluir_todos and instalacion_activa != "Todas":
+        estudios_sel_ids = list(set(estudios_sel_ids + df_e["id_estudio"].tolist()))
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # -------------------------
+    # 2. Escenarios consolidados y KPIs
+    # -------------------------
+    df_rp = get_dummy_riesgos_por_estudios(estudios_sel_ids)
+    met = resumir_riesgos_y_acciones(df_rp)
+
+    st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="panel-header">
+          <div class="panel-header-title">2. Escenarios, niveles de riesgo y acciones</div>
+          <div class="panel-header-sub">
+            Vista ejecutiva y técnica del riesgo de proceso consolidado.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if df_rp.empty:
+        st.info(
+            "No hay escenarios dummy para los estudios seleccionados. "
+            "En producción aquí verías el consolidado de tus PHA/HAZOP/LOPA/QRA."
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        st.markdown("**Escenarios analizados**")
+        st.markdown(f"<h3 style='margin:0.1rem 0'>{met['n_escenarios']}</h3>", unsafe_allow_html=True)
+    with k2:
+        st.markdown("**Acciones generales**")
+        st.markdown(f"<h3 style='margin:0.1rem 0'>{met['n_generales']}</h3>", unsafe_allow_html=True)
+    with k3:
+        st.markdown("**Acciones equipo multidisciplinario**")
+        st.markdown(f"<h3 style='margin:0.1rem 0'>{met['n_equipo']}</h3>", unsafe_allow_html=True)
+    with k4:
+        st.markdown("**Riesgo residual promedio (S×F)**")
+        st.markdown(f"<h3 style='margin:0.1rem 0'>{met['prom_riesgo_residual']}</h3>", unsafe_allow_html=True)
+        if met["top_peligros"]:
+            st.caption("Peligros frecuentes: " + ", ".join(met["top_peligros"]))
+        else:
+            st.caption("Sin datos en la DEMO.")
 
     st.markdown("---")
 
-    nodos_relevantes_ids = st.session_state.get("nodos_relevantes_ids", [])
+    # ==========================
+    # 3. Pestañas
+    # ==========================
+    tab_mapa, tab_generales, tab_equipo, tab_nodos = st.tabs([
+        "🗺️ Mapa de riesgo de procesos",
+        "📚 Acciones generales / típicas",
+        "🤝 Acciones para trabajo en equipo",
+        "🧩 Nodos & Estudios"
+    ])
 
-    if modo_sel == "Lista":
-        if df_f.empty:
-            st.info("No hay nodos para mostrar con los filtros actuales (DEMO).")
+    # ---- TAB 1: Mapa de riesgo ----
+    with tab_mapa:
+        st.markdown("#### Mapa de riesgo (Severidad vs Frecuencia) – DEMO")
+
+        df_plot = df_rp.copy()
+
+        chart = (
+            alt.Chart(df_plot)
+            .mark_circle()
+            .encode(
+                x=alt.X("frecuencia:Q", title="Frecuencia (1–5)", scale=alt.Scale(domain=[0.5, 5.5])),
+                y=alt.Y("severidad:Q", title="Severidad (1–5)", scale=alt.Scale(domain=[0.5, 5.5])),
+                size=alt.Size("riesgo_residual:Q", title="Riesgo residual (S×F)", scale=alt.Scale(range=[50, 800])),
+                color=alt.Color("nivel_riesgo:N", title="Nivel de riesgo"),
+                shape=alt.Shape("tipo_accion:N", title="Tipo de acción"),
+                tooltip=[
+                    "id_escenario",
+                    "id_estudio",
+                    "instalacion",
+                    "unidad",
+                    "equipo",
+                    "tipo_peligro",
+                    "fase_operativa",
+                    "descripcion_escenario",
+                    "causa_principal",
+                    "consecuencia_principal",
+                    "salvaguardas_clave",
+                    "nivel_riesgo",
+                    "riesgo_residual",
+                    "tipo_accion",
+                    "clase_accion"
+                ],
+            )
+            .properties(height=340)
+        )
+        st.altair_chart(chart, use_container_width=True)
+
+        st.caption(
+            "El tamaño refleja el riesgo residual (S×F), el color el nivel de riesgo "
+            "y la forma el tipo de acción (general vs trabajo en equipo)."
+        )
+
+        st.markdown("#### Tabla de escenarios (DEMO)")
+        st.dataframe(
+            df_plot[[
+                "id_escenario",
+                "id_estudio",
+                "instalacion",
+                "unidad",
+                "equipo",
+                "tipo_peligro",
+                "fase_operativa",
+                "nivel_riesgo",
+                "riesgo_residual",
+                "tipo_accion",
+                "clase_accion",
+                "accion_sugerida"
+            ]],
+            use_container_width=True,
+            hide_index=True
+        )
+
+    # ---- TAB 2: Acciones generales / típicas ----
+    with tab_generales:
+        st.markdown("#### Acciones generales / típicas (para estandarizar)")
+
+        df_gen = df_rp[df_rp["tipo_accion"] == "General"].copy()
+        if df_gen.empty:
+            st.info("No hay acciones generales en los escenarios analizados (DEMO).")
         else:
-            st.dataframe(df_f, use_container_width=True, hide_index=True)
-    else:
-        c1, c2 = st.columns([2, 1])
+            df_res = agrupar_acciones_generales(df_rp)
+            st.markdown("**Patrones de acción general por tema**")
+            st.dataframe(df_res, use_container_width=True, hide_index=True)
 
-        with c1:
-            st.markdown('<div class="section-title">Relaciones entre nodos (grafo demo)</div>', unsafe_allow_html=True)
-            st.markdown(
-                '<div class="section-sub">Los nodos resaltados están relacionados con el problema descrito.</div>',
-                unsafe_allow_html=True
+            st.markdown("---")
+            st.markdown("**Detalle de acciones generales por escenario**")
+            st.dataframe(
+                df_gen[[
+                    "id_escenario",
+                    "id_estudio",
+                    "instalacion",
+                    "unidad",
+                    "equipo",
+                    "descripcion_escenario",
+                    "tipo_peligro",
+                    "accion_sugerida",
+                    "clase_accion",
+                    "nivel_riesgo",
+                    "estado_accion"
+                ]],
+                use_container_width=True,
+                hide_index=True
             )
 
-            if df_f.empty:
-                st.info("No hay nodos para mostrar con los filtros actuales (DEMO).")
-            else:
-                G = nx.Graph()
-                main_ids = df_f["id"].tolist()
+            st.caption(
+                "Estas son acciones que el agente podría proponer como base para estándares "
+                "(procedimientos tipo, entrenamientos, rutinas de mantenimiento) en la versión real."
+            )
 
-                for _, row in df_f.iterrows():
-                    main_id = row["id"]
-                    G.add_node(main_id, tipo=row["tipo"], riesgo=row["riesgo"])
+    # ---- TAB 3: Acciones para trabajo en equipo ----
+    with tab_equipo:
+        st.markdown("#### Acciones y temas para trabajo en equipo")
 
-                    rels = [r.strip() for r in str(row["relacionados"]).split("|") if r.strip()]
-                    for rel in rels:
-                        if rel not in G:
-                            G.add_node(rel, tipo="Relacionado", riesgo="N/A")
-                        G.add_edge(main_id, rel)
+        df_team = df_rp[df_rp["tipo_accion"] == "Trabajo en equipo"].copy()
+        if df_team.empty:
+            st.info("No hay acciones marcadas como 'Trabajo en equipo' en los escenarios seleccionados (DEMO).")
+        else:
+            st.markdown("**Acciones / temas de sesión**")
+            st.dataframe(
+                df_team[[
+                    "id_escenario",
+                    "id_estudio",
+                    "instalacion",
+                    "unidad",
+                    "equipo",
+                    "descripcion_escenario",
+                    "tipo_peligro",
+                    "fase_operativa",
+                    "nivel_riesgo",
+                    "riesgo_residual",
+                    "accion_sugerida",
+                    "clase_accion",
+                    "estado_accion"
+                ]],
+                use_container_width=True,
+                hide_index=True
+            )
 
-                pos = nx.spring_layout(G, k=0.8, seed=42)
-                fig, ax = plt.subplots(figsize=(7, 5))
+        st.markdown("---")
+        st.markdown("**Resumen del agente (DEMO)**")
+        texto_agente = clasificar_acciones_rp_agente(df_rp)
+        st.markdown(texto_agente)
 
-                node_colors = []
-                node_sizes = []
-                for n in G.nodes():
-                    if n in nodos_relevantes_ids:
-                        # Nodos destacados por el agente
-                        node_colors.append(SECONDARY)
-                        node_sizes.append(900)
-                    elif n in main_ids:
-                        # Nodos principales filtrados
-                        node_colors.append(PRIMARY)
-                        node_sizes.append(700)
-                    else:
-                        # Nodos relacionados (por ejemplo, IDs de diagnóstico, requisitos)
-                        node_colors.append(ACCENT)
-                        node_sizes.append(400)
+        st.markdown("---")
+        st.markdown("#### Asistente por causa (usar histórico)")
 
-                nx.draw_networkx_edges(G, pos, ax=ax, alpha=0.3)
-                nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=node_sizes, ax=ax)
-                nx.draw_networkx_labels(G, pos, font_size=8, ax=ax)
-                ax.axis("off")
-                st.pyplot(fig, use_container_width=True)
+        causa_actual = st.text_input(
+            "Escribe una causa del estudio que quieras analizar con el histórico",
+            value=st.session_state.get("causa_rp_input", ""),
+            placeholder="Ejemplo: 'obstrucción por acumulación de sedimentos y parafinas en la línea...'"
+        )
+        st.session_state["causa_rp_input"] = causa_actual
 
-        with c2:
-            st.markdown('<div class="section-title">Detalle de nodo (simulación de clic)</div>', unsafe_allow_html=True)
-            if df_f.empty:
-                st.info("No hay nodos para mostrar (DEMO).")
-            else:
-                nodo_sel = st.selectbox("Selecciona un nodo principal", options=df_f["id"].tolist())
-                nodo_row = df_f[df_f["id"] == nodo_sel].iloc[0]
+        if st.button("Buscar consecuencias y salvaguardas típicas (DEMO)"):
+            df_hist = get_dummy_riesgos_por_estudios([])  # todos en DEMO
+            texto_causa, df_match = sugerir_consecuencias_y_salvaguardas_por_causa(causa_actual, df_hist)
+            st.markdown(texto_causa)
 
-                destacado = "Sí" if nodo_sel in nodos_relevantes_ids else "No"
-
-                st.markdown(f"**{nodo_row['id']} – {nodo_row['tipo']} ({nodo_row['riesgo']})**")
-                st.write(f"- Instalación: `{nodo_row['instalacion']}`")
-                st.write(f"- Unidad: `{nodo_row.get('unidad', '')}`")
-                st.write(f"- Equipo: `{nodo_row.get('equipo', '')}`")
-                st.write(f"- Pilar asociado: `{nodo_row['pilar']}`")
-                st.write(f"- Relacionado con el problema actual (DEMO): **{destacado}**")
-                st.write(f"- Descripción: {nodo_row['descripcion']}")
-
-                rels = [r.strip() for r in str(nodo_row["relacionados"]).split("|") if r.strip()]
-                st.markdown("**Nodos relacionados (diagnóstico, acción, requisito):**")
-                for r in rels:
-                    st.write(f"- {r}")
-
-                st.info(
-                    "DEMO: piensa esto como si hubieras hecho clic en el nodo del grafo. "
-                    "En la versión completa, aquí se integraría el detalle del PHA, "
-                    "planes de acción y requisitos normativos vinculados, además del vínculo al Informe de Seguridad."
+            if df_match is not None and not df_match.empty:
+                st.markdown("**Escenarios históricos utilizados como referencia (DEMO):**")
+                st.dataframe(
+                    df_match[[
+                        "id_escenario",
+                        "id_estudio",
+                        "instalacion",
+                        "unidad",
+                        "equipo",
+                        "tipo_peligro",
+                        "fase_operativa",
+                        "causa_principal",
+                        "consecuencia_principal",
+                        "salvaguardas_clave",
+                        "nivel_riesgo",
+                        "riesgo_residual",
+                        "tipo_accion",
+                        "clase_accion"
+                    ]],
+                    use_container_width=True,
+                    hide_index=True
                 )
 
+    # ---- TAB 4: Nodos & Estudios (TODO lo que ya tienes) ----
+    with tab_nodos:
+        # Reusamos TODO el módulo actual de nodos dentro de esta pestaña
+        render_nodos(instalacion_activa)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+
+def render_analisis_riesgos(instalacion_activa: str):
+    st.markdown("### Análisis de riesgos – Condiciones, causas, consecuencias y acciones (DEMO)")
+
+    # -------------------------
+    # 1. Selección de estudio
+    # -------------------------
+    if instalacion_activa == "Todas":
+        df_e = df_estudios.copy()
+    else:
+        df_e = df_estudios[df_estudios["instalacion"] == instalacion_activa].copy()
+
+    st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="panel-header">
+          <div class="panel-header-title">1. Selección y precarga del estudio</div>
+          <div class="panel-header-sub">
+            Elige el estudio de referencia para revisar sus condiciones, causas, consecuencias y acciones.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if df_e.empty:
+        st.info(
+            "No hay estudios dummy configurados para esta instalación en la DEMO. "
+            "Cuando conectes SKUDO a tus bases PHA/HAZOP/LOPA, aparecerán aquí."
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    df_e = df_e.sort_values(["instalacion", "anio", "tipo"])
+    opciones = []
+    mapping = {}
+    for _, row in df_e.iterrows():
+        label = f"{row['id_estudio']} – {row['tipo']} ({row['anio']}) – {row['instalacion']} / {row['unidad'] or 'Sin unidad'}"
+        opciones.append(label)
+        mapping[label] = row["id_estudio"]
+
+    sel_label = st.selectbox(
+        "Estudio de referencia",
+        options=opciones
+    )
+    id_est_sel = mapping[sel_label]
+    estudio_row = df_e[df_e["id_estudio"] == id_est_sel].iloc[0]
+
+    col_info1, col_info2 = st.columns([1.5, 1.5])
+    with col_info1:
+        st.markdown("**Resumen del estudio (DEMO)**")
+        st.write(f"- Tipo: `{estudio_row['tipo']}`")
+        st.write(f"- Año: `{estudio_row['anio']}`")
+        st.write(f"- Instalación: `{estudio_row['instalacion']}`")
+        st.write(f"- Unidad: `{estudio_row['unidad']}`")
+        st.write(f"- Equipo principal: `{estudio_row['equipo'] or 'N/A'}`")
+
+    with col_info2:
+        st.markdown("**Cobertura y estado**")
+        st.write(f"- Cobertura declarada: `{estudio_row['cobertura']}`")
+        st.write(f"- Estado: `{estudio_row['estado']}`")
+        st.write(f"- Acción sugerida global: {estudio_row['accion_sugerida']}")
+        st.caption("En la versión real, aquí se verían metadatos completos del estudio, versión, revalidaciones, etc.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # -------------------------
+    # 2. Condiciones del estudio + agente
+    # -------------------------
+    df_cond = get_dummy_condiciones_para_estudio(id_est_sel)
+
+    st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="panel-header">
+          <div class="panel-header-title">2. Condiciones analizadas y acciones asociadas (DEMO)</div>
+          <div class="panel-header-sub">
+            Se listan las condiciones (escenarios), sus causas, consecuencias, salvaguardas y acciones propuestas.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col_c1, col_c2 = st.columns([1.8, 1.2])
+
+    with col_c1:
+        if df_cond.empty:
+            st.info(
+                "Este estudio no tiene condiciones dummy asociadas en la DEMO. "
+                "En producción se precargarían desde tus hojas PHA/HAZOP/LOPA."
+            )
+        else:
+            st.markdown("**Tabla de condiciones y acciones**")
+            df_show = df_cond[[
+                "id_condicion",
+                "condicion",
+                "causa",
+                "consecuencia",
+                "salvaguardas",
+                "accion_sugerida",
+                "tipo_accion",
+                "criticidad",
+                "estado_accion"
+            ]].copy()
+            st.dataframe(df_show, use_container_width=True, hide_index=True)
+
+    with col_c2:
+        st.markdown('<div class="section-title">Agente de análisis (DEMO)</div>', unsafe_allow_html=True)
+        texto_agente, df_gen, df_team = clasificar_acciones_riesgos(df_cond)
+        st.markdown(texto_agente)
+
+        if not df_gen.empty:
+            st.markdown("---")
+            st.markdown("**Resumen rápido – Acciones generales**")
+            st.write(f"- Se identifican {len(df_gen)} acciones que podrían estandarizarse.")
+        if not df_team.empty:
+            st.markdown("**Resumen rápido – Acciones a trabajar en equipo**")
+            st.write(f"- Se identifican {len(df_team)} acciones que requieren revisión conjunta.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # -------------------------
+    # 3. Futuro: integración con planes y comité
+    # -------------------------
+    st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="panel-header">
+          <div class="panel-header-title">3. Siguiente paso (DEMO)</div>
+          <div class="panel-header-sub">
+            Cómo se usaría este análisis en SKUDO real.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.write(
+        "- En la versión completa, las **acciones generales** alimentarían catálogos corporativos "
+        "de estándares (procedimientos tipo, entrenamientos base, lineamientos de permisos de trabajo)."
+    )
+    st.write(
+        "- Las **acciones que requieren trabajo en equipo** se usarían para armar agendas de reuniones "
+        "de análisis de riesgo (ingeniería, operación, HSE) y priorizar recursos."
+    )
+    st.write(
+        "- Además, el resultado se conectaría con el **plan de acción de SKUDO** y con el **Informe de Seguridad** "
+        "para evidenciar cómo se gestionan los escenarios de riesgo identificados."
+    )
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -1873,15 +3023,17 @@ with st.sidebar:
 
     st.markdown("---")
     menu = st.radio(
-        "Navegación",
-        options=[
-            "Tablero de control",
-            "Diagnóstico CCPS",
-            "Nodos & Estudios",
-            "Informe de Seguridad",
-            "Mi Agente SKUDO"
-        ]
+    "Navegación",
+    options=[
+        "Tablero de control",
+        "Diagnóstico CCPS",
+        "Análisis de riesgos de procesos",  # 👈 aquí vive ahora “Nodos & Estudios”
+        "Informe de Seguridad",
+        "Mi Agente SKUDO"
+    ]
     )
+
+
 
 # =========================================================
 # ROUTER
@@ -1890,9 +3042,11 @@ if menu == "Tablero de control":
     render_dashboard(instalacion_activa, perfil)
 elif menu == "Diagnóstico CCPS":
     render_diagnostico(instalacion_activa, perfil)
-elif menu == "Nodos & Estudios":
-    render_nodos(instalacion_activa)
+elif menu == "Análisis de riesgos de procesos":
+    render_analisis_riesgos_proceso(instalacion_activa, perfil)  # 👈 nueva función
 elif menu == "Informe de Seguridad":
     render_informe()
 else:
     render_agente(instalacion_activa, perfil)
+
+
