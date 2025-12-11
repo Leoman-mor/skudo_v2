@@ -1053,6 +1053,18 @@ def render_nodos(instalacion_activa: str):
     if modo_sel == "Lista":
         st.dataframe(df_f, use_container_width=True, hide_index=True)
     else:
+        # 👇 NUEVO: imports locales con manejo de error
+        try:
+            import matplotlib.pyplot as plt
+            import networkx as nx
+        except ImportError:
+            st.warning(
+                "Para ver el grafo necesitas tener instalados `matplotlib` y `networkx`. "
+                "En esta demo en la nube solo se muestra la tabla."
+            )
+            st.dataframe(df_f, use_container_width=True, hide_index=True)
+            return
+
         c1, c2 = st.columns([2, 1])
 
         with c1:
@@ -1095,29 +1107,8 @@ def render_nodos(instalacion_activa: str):
             st.pyplot(fig, use_container_width=True)
 
         with c2:
-            st.markdown('<div class="section-title">Detalle de nodo (simulación de clic)</div>', unsafe_allow_html=True)
-            if df_f.empty:
-                st.info("No hay nodos para mostrar con los filtros actuales (demo).")
-                return
+        
 
-            nodo_sel = st.selectbox("Selecciona un nodo principal", options=df_f["id"].tolist())
-            nodo_row = df_f[df_f["id"] == nodo_sel].iloc[0]
-
-            st.markdown(f"**{nodo_row['id']} – {nodo_row['tipo']} ({nodo_row['riesgo']})**")
-            st.write(f"- Instalación: `{nodo_row['instalacion']}`")
-            st.write(f"- Pilar asociado: `{nodo_row['pilar']}`")
-            st.write(f"- Descripción: {nodo_row['descripcion']}")
-
-            rels = [r.strip() for r in str(nodo_row["relacionados"]).split("|") if r.strip()]
-            st.markdown("**Nodos relacionados (diagnóstico, acción, requisito):**")
-            for r in rels:
-                st.write(f"- {r}")
-
-            st.info(
-                "DEMO: piensa esto como si hubieras hecho clic en el nodo del grafo. "
-                "En la versión completa, aquí se integraría el detalle del PHA, "
-                "planes de acción y requisitos normativos vinculados."
-            )
 
 # =========================================================
 # INFORME – AQUÍ VIENE LA PARTE CRÍTICA DEL % DE AVANCE
