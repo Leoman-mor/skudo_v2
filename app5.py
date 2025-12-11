@@ -145,7 +145,6 @@ def calificacion_to_score(calif: str) -> int:
     }
     return mapping.get(calif, 50)
 
-
 def load_dummy_data():
     df_sites = pd.DataFrame([
         {
@@ -211,13 +210,15 @@ def load_dummy_data():
         })
     df_diag = pd.DataFrame(diag_rows)
 
-    # Nodos
+    # Nodos (escenarios / acciones / requisitos)
     df_nodos = pd.DataFrame([
         {
             "id": "N-001",
             "tipo": "Escenario de riesgo",
             "instalacion": "Planta Mezclas Norte",
-            "descripcion": "Fuga de solvente inflamable en área de carga.",
+            "unidad": "Reactor 1",
+            "equipo": "R-101",
+            "descripcion": "Fuga de solvente inflamable en área de carga y posible sobrepresión en R-101.",
             "riesgo": "ALTO",
             "pilar": "Gestionar el riesgo",
             "relacionados": "D-001 | A-003 | Req-3687-9"
@@ -226,6 +227,8 @@ def load_dummy_data():
             "id": "N-002",
             "tipo": "Acción / Plan",
             "instalacion": "Terminal Almacenamiento Sur",
+            "unidad": "Tanques esféricos",
+            "equipo": "TK-201-ESF",
             "descripcion": "Instalar sistema de detección de gas en tanques esféricos.",
             "riesgo": "ALTO",
             "pilar": "Prevenir",
@@ -235,17 +238,71 @@ def load_dummy_data():
             "id": "N-003",
             "tipo": "Requisito normativo",
             "instalacion": "Planta Reactores Oriente",
-            "descripcion": "Actualizar Informe de Seguridad según nueva revisión.",
+            "unidad": "Reactor 2",
+            "equipo": "R-202",
+            "descripcion": "Actualizar Informe de Seguridad según nueva revisión de la norma.",
             "riesgo": "MEDIO",
             "pilar": "Gestionar el riesgo",
             "relacionados": "D-020 | D-021"
         },
     ])
 
-    return df_sites, df_heat, df_diag, df_nodos
+    # Estudios históricos (HAZOP, What-if, QRA, etc.)
+    df_estudios = pd.DataFrame([
+        {
+            "id_estudio": "E-001",
+            "tipo": "HAZOP",
+            "anio": 2019,
+            "instalacion": "Planta Mezclas Norte",
+            "unidad": "Reactor 1",
+            "equipo": "R-101",
+            "cobertura": "Alta",
+            "estado": "Vigente",
+            "accion_sugerida": "Revalidar enfocado en escenarios de sobrepresión.",
+            "comentario": "HAZOP de detalle para operación normal y arranque."
+        },
+        {
+            "id_estudio": "E-002",
+            "tipo": "LOPA",
+            "anio": 2020,
+            "instalacion": "Planta Mezclas Norte",
+            "unidad": "Reactor 1",
+            "equipo": "R-101",
+            "cobertura": "Media",
+            "estado": "Vigente",
+            "accion_sugerida": "Revisar supuestos de frecuencias y fallas de PSV.",
+            "comentario": "LOPA para escenarios de sobrepresión y fallo de SIS."
+        },
+        {
+            "id_estudio": "E-003",
+            "tipo": "What-if",
+            "anio": 2017,
+            "instalacion": "Terminal Almacenamiento Sur",
+            "unidad": "Área de tanques",
+            "equipo": "TK-201-ESF",
+            "cobertura": "Baja",
+            "estado": "Obsoleto",
+            "accion_sugerida": "No repetir completo, documentar decisiones previas.",
+            "comentario": "What-if de arranque inicial del terminal."
+        },
+        {
+            "id_estudio": "E-004",
+            "tipo": "QRA",
+            "anio": 2021,
+            "instalacion": "Planta Reactores Oriente",
+            "unidad": "Complejo de reactores",
+            "equipo": "",
+            "cobertura": "Alta",
+            "estado": "Vigente",
+            "accion_sugerida": "Usar como base para ordenamiento territorial y PEC.",
+            "comentario": "Análisis cuantitativo de riesgo para toda la planta."
+        },
+    ])
+
+    return df_sites, df_heat, df_diag, df_nodos, df_estudios
 
 
-df_sites, df_heat, df_diag, df_nodos = load_dummy_data()
+df_sites, df_heat, df_diag, df_nodos, df_estudios = load_dummy_data()
 
 # =========================================================
 # ESTADO GLOBAL BÁSICO
@@ -386,6 +443,152 @@ def prioridades_desde_diag(df_diag_filtrado: pd.DataFrame, top_n: int = 5) -> pd
             "Plazo sugerido": plazo
         })
     return pd.DataFrame(prioridades)
+
+
+def sugerir_estudio_y_estudios(contexto: dict, df_estudios_base: pd.DataFrame, df_nodos_base: pd.DataFrame):
+    """
+    Dado el contexto del problema (instalación, unidad, equipo, descripción, tipo_situacion, fase),
+    sugiere el tipo de estudio y busca estudios/nodos relacionados (DEMO).
+    """
+
+    instalacion = contexto.get("instalacion", "Todas")
+    unidad = (contexto.get("unidad") or "").strip()
+    equipo = (contexto.get("equipo") or "").strip()
+    tipo_situacion = contexto.get("tipo_situacion", "")
+    fase = contexto.get("fase", "")
+    desc = (contexto.get("descripcion") or "").strip()
+
+    # -------------------------
+    # 1) Selección de metodología (DEMO simple)
+    # -------------------------
+    if tipo_situacion == "Nuevo proyecto / diseño":
+        if "conceptual" in fase.lower():
+            metodo = "What-if + checklist"
+            motivo = (
+                "Estás en fase conceptual, donde un **What-if** ampliado ayuda a "
+                "explorar escenarios sin entrar al nivel de detalle de un HAZOP completo."
+            )
+        else:
+            metodo = "HAZOP completo"
+            motivo = (
+                "Para proyectos en detalle, un **HAZOP** completo es el estándar para "
+                "identificar desviaciones sistemáticamente."
+            )
+    elif tipo_situacion == "Cambio (MOC)":
+        metodo = "Revalidación de HAZOP / PHA focalizada"
+        motivo = (
+            "Para cambios, es más eficiente **revalidar el HAZOP/PHA existente** en los nodos "
+            "impactados que iniciar un estudio desde cero."
+        )
+    elif tipo_situacion == "Problema recurrente / desviación operacional":
+        metodo = "Revisión focalizada de HAZOP + What-if puntual"
+        motivo = (
+            "Un problema recurrente suele estar asociado a uno o pocos escenarios; conviene "
+            "revisar el HAZOP previo y complementarlo con un **What-if** focalizado."
+        )
+    elif tipo_situacion == "Incidente / casi incidente":
+        metodo = "Investigación de incidentes + actualización de HAZOP/PHA"
+        motivo = (
+            "Un incidente requiere una **investigación formal** y luego actualizar los estudios "
+            "de riesgo para capturar las causas y salvaguardas."
+        )
+    else:
+        metodo = "Revisión de estudios existentes y definición de alcance"
+        motivo = (
+            "Primero es clave revisar qué estudios históricos existen y su alcance antes de "
+            "definir una metodología nueva."
+        )
+
+    # -------------------------
+    # 2) Búsqueda de estudios relacionados (DEMO)
+    # -------------------------
+    df_est = df_estudios_base.copy()
+
+    # Filtros suaves por instalación, unidad, equipo
+    mask = pd.Series(True, index=df_est.index)
+    if instalacion != "Todas":
+        mask &= df_est["instalacion"] == instalacion
+
+    if unidad:
+        mask &= df_est["unidad"].str.contains(unidad, case=False, na=False)
+
+    if equipo:
+        mask &= df_est["equipo"].str.contains(equipo, case=False, na=False)
+
+    df_rel = df_est[mask].copy()
+
+    # Si no encuentra nada, mostrar algunos de la instalación o generales
+    if df_rel.empty:
+        if instalacion != "Todas":
+            df_rel = df_est[df_est["instalacion"] == instalacion].copy()
+        if df_rel.empty:
+            df_rel = df_est.copy()
+        df_rel = df_rel.head(3)
+
+    # -------------------------
+    # 3) Búsqueda de nodos relacionados (DEMO)
+    # -------------------------
+    df_n = df_nodos_base.copy()
+    mask_n = pd.Series(True, index=df_n.index)
+
+    if instalacion != "Todas":
+        mask_n &= df_n["instalacion"] == instalacion
+
+    desc_lower = desc.lower()
+    unidad_lower = unidad.lower()
+    equipo_lower = equipo.lower()
+
+    def es_relacionado(row):
+        texto = str(row["descripcion"]).lower()
+        score = 0
+        if equipo_lower and equipo_lower in texto:
+            score += 2
+        if unidad_lower and unidad_lower in texto:
+            score += 1
+        # Palabras clave de la descripción larga
+        for palabra in desc_lower.split():
+            if len(palabra) >= 5 and palabra in texto:
+                score += 1
+        return score >= 2  # umbral simple para DEMO
+
+    if desc or unidad or equipo:
+        rel_mask = df_n.apply(es_relacionado, axis=1)
+        mask_n &= rel_mask
+
+    df_n_rel = df_n[mask_n].copy()
+    if df_n_rel.empty:
+        df_n_rel = df_n.head(3).copy()
+
+    nodos_rel_ids = df_n_rel["id"].tolist()
+
+    # -------------------------
+    # 4) Texto tipo "agente" (DEMO)
+    # -------------------------
+    texto = f"""
+[DEMO SKUDO] Para el problema descrito, la metodología sugerida es:
+
+- **{metodo}**
+
+**¿Por qué?**  
+{motivo}
+
+He encontrado **{len(df_rel)} estudio(s)** histórico(s) potencialmente relevantes:
+
+"""  # noqa: W291
+
+    for _, r in df_rel.head(5).iterrows():
+        texto += (
+            f"- `{r['id_estudio']}` – {r['tipo']} ({r['anio']}) en **{r['instalacion']} – {r['unidad']}** "
+            f"[Cobertura: {r['cobertura']}, Estado: {r['estado']}]  \n"
+        )
+
+    texto += (
+        "\nEn la versión completa, SKUDO analizaría el contenido detallado de estos estudios "
+        "para evitar repetir análisis y priorizar revalidaciones y acciones de mayor impacto."
+    )
+
+    return texto, df_rel, nodos_rel_ids
+
 
 
 def generar_resumen_agente_accion_rapida(accion: str, df_diag: pd.DataFrame, instalacion_activa: str | None, perfil: str):
@@ -1102,22 +1305,236 @@ def render_diagnostico(instalacion_activa: str, perfil: str):
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-def render_nodos(instalacion_activa: str):
-    st.markdown("### Nodos & Estudios – Grafo demo de relaciones")
 
-    df = df_nodos.copy()
+def render_nodos(instalacion_activa: str):
+    st.markdown("### Nodos & Estudios – Asistente de estudios y grafo (DEMO)")
+
+    # Base de datos filtrada por instalación
+    df_n_base = df_nodos.copy()
     if instalacion_activa != "Todas":
-        df = df[df["instalacion"] == instalacion_activa]
+        df_n_base = df_n_base[df_n_base["instalacion"] == instalacion_activa]
+
+    df_e_base = df_estudios.copy()
+    if instalacion_activa != "Todas":
+        df_e_base = df_e_base[df_e_base["instalacion"] == instalacion_activa]
+
+    # Estado local para esta pestaña
+    if "nodos_sugerencia_texto" not in st.session_state:
+        st.session_state["nodos_sugerencia_texto"] = ""
+    if "nodos_estudios_rel" not in st.session_state:
+        st.session_state["nodos_estudios_rel"] = pd.DataFrame()
+    if "nodos_relevantes_ids" not in st.session_state:
+        st.session_state["nodos_relevantes_ids"] = []
+
+    # =====================================================
+    # BLOQUE A – Asistente: "Dile a SKUDO tu problema"
+    # =====================================================
+    st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="panel-header">
+          <div class="panel-header-title">1. Dile a SKUDO tu problema</div>
+          <div class="panel-header-sub">
+            Describe la situación y el agente sugerirá el estudio adecuado y estudios previos relacionados.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col_a1, col_a2 = st.columns([1.6, 1.4])
+
+    with col_a1:
+        # Campos del contexto del problema
+        desc_default = st.session_state.get("problema_descripcion", "")
+        unidad_default = st.session_state.get("problema_unidad", "")
+        equipo_default = st.session_state.get("problema_equipo", "")
+        tipo_default = st.session_state.get("problema_tipo_situacion", "Problema recurrente / desviación operacional")
+        fase_default = st.session_state.get("problema_fase", "Operación")
+
+        desc = st.text_area(
+            "Describe brevemente el problema o necesidad",
+            value=desc_default,
+            height=120,
+            placeholder="Ejemplo: 'Tenemos disparos frecuentes del PSV en el reactor R-101 cuando estamos cerca del máximo caudal de alimentación.'",
+        )
+        st.session_state["problema_descripcion"] = desc
+
+        c_ctx1, c_ctx2 = st.columns(2)
+        with c_ctx1:
+            unidad = st.text_input(
+                "Unidad / área",
+                value=unidad_default,
+                placeholder="Ejemplo: Reactor 1, Área de carga..."
+            )
+            st.session_state["problema_unidad"] = unidad
+        with c_ctx2:
+            equipo = st.text_input(
+                "Equipo involucrado (si aplica)",
+                value=equipo_default,
+                placeholder="Ejemplo: R-101, TK-201-ESF..."
+            )
+            st.session_state["problema_equipo"] = equipo
+
+        c_ctx3, c_ctx4 = st.columns(2)
+        with c_ctx3:
+            tipo_situacion = st.selectbox(
+                "Tipo de situación",
+                options=[
+                    "Nuevo proyecto / diseño",
+                    "Cambio (MOC)",
+                    "Problema recurrente / desviación operacional",
+                    "Incidente / casi incidente",
+                    "Otro / no estoy seguro"
+                ],
+                index=[
+                    "Nuevo proyecto / diseño",
+                    "Cambio (MOC)",
+                    "Problema recurrente / desviación operacional",
+                    "Incidente / casi incidente",
+                    "Otro / no estoy seguro"
+                ].index(tipo_default) if tipo_default in [
+                    "Nuevo proyecto / diseño",
+                    "Cambio (MOC)",
+                    "Problema recurrente / desviación operacional",
+                    "Incidente / casi incidente",
+                    "Otro / no estoy seguro"
+                ] else 2,
+            )
+            st.session_state["problema_tipo_situacion"] = tipo_situacion
+        with c_ctx4:
+            fase = st.selectbox(
+                "Fase del ciclo de vida",
+                options=[
+                    "Conceptual",
+                    "Básico / FEED",
+                    "Detalle",
+                    "Operación",
+                    "Desmantelamiento"
+                ],
+                index=[
+                    "Conceptual",
+                    "Básico / FEED",
+                    "Detalle",
+                    "Operación",
+                    "Desmantelamiento"
+                ].index(fase_default) if fase_default in [
+                    "Conceptual",
+                    "Básico / FEED",
+                    "Detalle",
+                    "Operación",
+                    "Desmantelamiento"
+                ] else 3,
+            )
+            st.session_state["problema_fase"] = fase
+
+        if st.button("Sugerir estudio / revisión (DEMO)"):
+            contexto = {
+                "instalacion": instalacion_activa,
+                "unidad": unidad,
+                "equipo": equipo,
+                "tipo_situacion": tipo_situacion,
+                "fase": fase,
+                "descripcion": desc,
+            }
+            texto, df_est_rel, nodos_rel_ids = sugerir_estudio_y_estudios(contexto, df_e_base, df_n_base)
+            st.session_state["nodos_sugerencia_texto"] = texto
+            st.session_state["nodos_estudios_rel"] = df_est_rel
+            st.session_state["nodos_relevantes_ids"] = nodos_rel_ids
+
+    with col_a2:
+        st.markdown('<div class="section-title">Respuesta del agente (DEMO)</div>', unsafe_allow_html=True)
+        if st.session_state["nodos_sugerencia_texto"]:
+            st.markdown(st.session_state["nodos_sugerencia_texto"])
+        else:
+            st.info(
+                "Cuando describas el problema y hagas clic en **'Sugerir estudio / revisión (DEMO)'**, "
+                "el agente mostrará aquí el método recomendado y estudios previos relacionados."
+            )
+
+        st.markdown("---")
+        st.markdown('<div class="section-title">Contexto activo</div>', unsafe_allow_html=True)
+        st.markdown(f"<span class='chip'>Instalación: {instalacion_activa}</span>", unsafe_allow_html=True)
+        if unidad_default:
+            st.markdown(f"<span class='chip'>Unidad: {unidad_default}</span>", unsafe_allow_html=True)
+        if equipo_default:
+            st.markdown(f"<span class='chip'>Equipo: {equipo_default}</span>", unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # =====================================================
+    # BLOQUE B – Estudios históricos relacionados
+    # =====================================================
+    st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="panel-header">
+          <div class="panel-header-title">2. Estudios históricos relacionados (DEMO)</div>
+          <div class="panel-header-sub">
+            Revisa primero lo que ya se ha estudiado antes de lanzar un estudio nuevo.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    df_est_rel = st.session_state["nodos_estudios_rel"]
+    if df_est_rel is not None and not df_est_rel.empty:
+        df_show = df_est_rel[[
+            "id_estudio",
+            "tipo",
+            "anio",
+            "instalacion",
+            "unidad",
+            "equipo",
+            "cobertura",
+            "estado",
+            "accion_sugerida",
+        ]].copy()
+        st.dataframe(df_show, use_container_width=True, hide_index=True)
+    else:
+        st.info(
+            "Aquí verás los estudios que el agente identifica como relacionados con el problema. "
+            "Por ahora no se ha ejecutado ninguna búsqueda (DEMO)."
+        )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # =====================================================
+    # BLOQUE C – Nodos & grafo de relaciones
+    # =====================================================
+    st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="panel-header">
+          <div class="panel-header-title">3. Nodos & relaciones entre escenarios, acciones y requisitos (DEMO)</div>
+          <div class="panel-header-sub">
+            Visualiza cómo se conectan escenarios de riesgo, acciones del plan y requisitos normativos.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     colf1, colf2, colf3 = st.columns(3)
     with colf1:
-        tipo_sel = st.selectbox("Tipo de nodo", ["Todos"] + sorted(df["tipo"].unique().tolist()))
+        tipo_sel = st.selectbox(
+            "Tipo de nodo",
+            ["Todos"] + sorted(df_n_base["tipo"].unique().tolist())
+        )
     with colf2:
-        riesgo_sel = st.selectbox("Riesgo", ["Todos"] + sorted(df["riesgo"].unique().tolist()))
+        riesgo_sel = st.selectbox(
+            "Riesgo",
+            ["Todos"] + sorted(df_n_base["riesgo"].unique().tolist())
+        )
     with colf3:
-        modo_sel = st.selectbox("Modo de vista", ["Lista", "Relaciones (grafo demo)"], index=1)
+        modo_sel = st.selectbox(
+            "Modo de vista",
+            ["Lista", "Relaciones (grafo demo)"],
+            index=1
+        )
 
-    df_f = df.copy()
+    df_f = df_n_base.copy()
     if tipo_sel != "Todos":
         df_f = df_f[df_f["tipo"] == tipo_sel]
     if riesgo_sel != "Todos":
@@ -1125,74 +1542,95 @@ def render_nodos(instalacion_activa: str):
 
     st.markdown("---")
 
+    nodos_relevantes_ids = st.session_state.get("nodos_relevantes_ids", [])
+
     if modo_sel == "Lista":
-        st.dataframe(df_f, use_container_width=True, hide_index=True)
+        if df_f.empty:
+            st.info("No hay nodos para mostrar con los filtros actuales (DEMO).")
+        else:
+            st.dataframe(df_f, use_container_width=True, hide_index=True)
     else:
         c1, c2 = st.columns([2, 1])
 
         with c1:
             st.markdown('<div class="section-title">Relaciones entre nodos (grafo demo)</div>', unsafe_allow_html=True)
             st.markdown(
-                '<div class="section-sub">Visualiza cómo se conectan escenarios, acciones y requisitos.</div>',
+                '<div class="section-sub">Los nodos resaltados están relacionados con el problema descrito.</div>',
                 unsafe_allow_html=True
             )
 
-            G = nx.Graph()
-            main_ids = df_f["id"].tolist()
+            if df_f.empty:
+                st.info("No hay nodos para mostrar con los filtros actuales (DEMO).")
+            else:
+                G = nx.Graph()
+                main_ids = df_f["id"].tolist()
 
-            for _, row in df_f.iterrows():
-                main_id = row["id"]
-                G.add_node(main_id, tipo=row["tipo"], riesgo=row["riesgo"])
+                for _, row in df_f.iterrows():
+                    main_id = row["id"]
+                    G.add_node(main_id, tipo=row["tipo"], riesgo=row["riesgo"])
 
-                rels = [r.strip() for r in str(row["relacionados"]).split("|") if r.strip()]
-                for rel in rels:
-                    if rel not in G:
-                        G.add_node(rel, tipo="Relacionado", riesgo="N/A")
-                    G.add_edge(main_id, rel)
+                    rels = [r.strip() for r in str(row["relacionados"]).split("|") if r.strip()]
+                    for rel in rels:
+                        if rel not in G:
+                            G.add_node(rel, tipo="Relacionado", riesgo="N/A")
+                        G.add_edge(main_id, rel)
 
-            pos = nx.spring_layout(G, k=0.8, seed=42)
-            fig, ax = plt.subplots(figsize=(7, 5))
+                pos = nx.spring_layout(G, k=0.8, seed=42)
+                fig, ax = plt.subplots(figsize=(7, 5))
 
-            node_colors = []
-            node_sizes = []
-            for n in G.nodes():
-                if n in main_ids:
-                    node_colors.append("#005F73")
-                    node_sizes.append(800)
-                else:
-                    node_colors.append("#EE9B00")
-                    node_sizes.append(400)
+                node_colors = []
+                node_sizes = []
+                for n in G.nodes():
+                    if n in nodos_relevantes_ids:
+                        # Nodos destacados por el agente
+                        node_colors.append(SECONDARY)
+                        node_sizes.append(900)
+                    elif n in main_ids:
+                        # Nodos principales filtrados
+                        node_colors.append(PRIMARY)
+                        node_sizes.append(700)
+                    else:
+                        # Nodos relacionados (por ejemplo, IDs de diagnóstico, requisitos)
+                        node_colors.append(ACCENT)
+                        node_sizes.append(400)
 
-            nx.draw_networkx_edges(G, pos, ax=ax, alpha=0.3)
-            nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=node_sizes, ax=ax)
-            nx.draw_networkx_labels(G, pos, font_size=8, ax=ax)
-            ax.axis("off")
-            st.pyplot(fig, use_container_width=True)
+                nx.draw_networkx_edges(G, pos, ax=ax, alpha=0.3)
+                nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=node_sizes, ax=ax)
+                nx.draw_networkx_labels(G, pos, font_size=8, ax=ax)
+                ax.axis("off")
+                st.pyplot(fig, use_container_width=True)
 
         with c2:
             st.markdown('<div class="section-title">Detalle de nodo (simulación de clic)</div>', unsafe_allow_html=True)
             if df_f.empty:
-                st.info("No hay nodos para mostrar con los filtros actuales (demo).")
-                return
+                st.info("No hay nodos para mostrar (DEMO).")
+            else:
+                nodo_sel = st.selectbox("Selecciona un nodo principal", options=df_f["id"].tolist())
+                nodo_row = df_f[df_f["id"] == nodo_sel].iloc[0]
 
-            nodo_sel = st.selectbox("Selecciona un nodo principal", options=df_f["id"].tolist())
-            nodo_row = df_f[df_f["id"] == nodo_sel].iloc[0]
+                destacado = "Sí" if nodo_sel in nodos_relevantes_ids else "No"
 
-            st.markdown(f"**{nodo_row['id']} – {nodo_row['tipo']} ({nodo_row['riesgo']})**")
-            st.write(f"- Instalación: `{nodo_row['instalacion']}`")
-            st.write(f"- Pilar asociado: `{nodo_row['pilar']}`")
-            st.write(f"- Descripción: {nodo_row['descripcion']}")
+                st.markdown(f"**{nodo_row['id']} – {nodo_row['tipo']} ({nodo_row['riesgo']})**")
+                st.write(f"- Instalación: `{nodo_row['instalacion']}`")
+                st.write(f"- Unidad: `{nodo_row.get('unidad', '')}`")
+                st.write(f"- Equipo: `{nodo_row.get('equipo', '')}`")
+                st.write(f"- Pilar asociado: `{nodo_row['pilar']}`")
+                st.write(f"- Relacionado con el problema actual (DEMO): **{destacado}**")
+                st.write(f"- Descripción: {nodo_row['descripcion']}")
 
-            rels = [r.strip() for r in str(nodo_row["relacionados"]).split("|") if r.strip()]
-            st.markdown("**Nodos relacionados (diagnóstico, acción, requisito):**")
-            for r in rels:
-                st.write(f"- {r}")
+                rels = [r.strip() for r in str(nodo_row["relacionados"]).split("|") if r.strip()]
+                st.markdown("**Nodos relacionados (diagnóstico, acción, requisito):**")
+                for r in rels:
+                    st.write(f"- {r}")
 
-            st.info(
-                "DEMO: piensa esto como si hubieras hecho clic en el nodo del grafo. "
-                "En la versión completa, aquí se integraría el detalle del PHA, "
-                "planes de acción y requisitos normativos vinculados."
-            )
+                st.info(
+                    "DEMO: piensa esto como si hubieras hecho clic en el nodo del grafo. "
+                    "En la versión completa, aquí se integraría el detalle del PHA, "
+                    "planes de acción y requisitos normativos vinculados, además del vínculo al Informe de Seguridad."
+                )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
 # =========================================================
 # INFORME – AQUÍ VIENE LA PARTE CRÍTICA DEL % DE AVANCE
