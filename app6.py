@@ -1281,7 +1281,7 @@ with st.sidebar:
 # =========================================================
 if menu == "Tablero":
     render_dashboard(instalacion_activa, perfil)
-elif menu == "Estudios con SKUDO":
+elif menu == "Agente inteligente & Estudios":
     render_estudios_flujo(instalacion_activa, perfil)
 elif menu == "Análisis de riesgos":
     render_analisis_riesgos(instalacion_activa, perfil)
