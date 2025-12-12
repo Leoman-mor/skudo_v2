@@ -732,7 +732,7 @@ def render_estudios_flujo(instalacion_activa: str, perfil: str):
         pasos = [
             "1) Estudio recomendado",
             "2) Preparación",
-            "3) Prefabricado (HAZOP)",
+            "3) Estudio prefabricado",
             "4) Curación humana por nodo",
             "5) Completar estudio",
             "6) Aprobar",
@@ -875,7 +875,7 @@ def render_estudios_flujo(instalacion_activa: str, perfil: str):
                 log_ai(study, "Preparación completa → listo para prefabricado.")
 
         # ===== PASO 3 =====
-        elif paso == "3) Prefabricado (HAZOP)":
+        elif paso == "3) Estudio prefabricado":
             st.markdown("### 3) Prefabricado del estudio (HAZOP Worksheet)")
 
             if study["nodos_rel"].empty:
@@ -1268,7 +1268,7 @@ with st.sidebar:
         "Navegación",
         options=[
             "Tablero",
-            "Agente inteligente & Estudios",
+            "Estudios con SKUDO",
             "Análisis de riesgos",
             "Informe",
             "Mi Agente SKUDO"
@@ -1281,7 +1281,7 @@ with st.sidebar:
 # =========================================================
 if menu == "Tablero":
     render_dashboard(instalacion_activa, perfil)
-elif menu == "Agente inteligente & Estudios":
+elif menu == "Estudios con SKUDO":
     render_estudios_flujo(instalacion_activa, perfil)
 elif menu == "Análisis de riesgos":
     render_analisis_riesgos(instalacion_activa, perfil)
