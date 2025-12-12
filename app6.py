@@ -1267,7 +1267,7 @@ with st.sidebar:
         "Navegación",
         options=[
             "Tablero",
-            "Agente inteligente & Estudios",
+            "Estudios con SKUDO",
             "Análisis de riesgos",
             "Informe",
             "Mi Agente SKUDO"
