@@ -651,7 +651,7 @@ def hazop_rows_to_df(hazop_by_nodo: Dict[str, Any]) -> pd.DataFrame:
     return df[cols]
 
 def render_estudios_flujo(instalacion_activa: str, perfil: str):
-    render_hero(instalacion_activa, perfil, "Agente inteligente & Estudios")
+    render_hero(instalacion_activa, perfil, "Estudios con SKUDO")
 
     # selector / crear estudio
     topL, topR = st.columns([2.2, 1.0])
@@ -730,9 +730,9 @@ def render_estudios_flujo(instalacion_activa: str, perfil: str):
         st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
 
         pasos = [
-            "1) Estudio recomendado",
+            "1) Recomendar estudio",
             "2) Preparación",
-            "3) Prefabricado (HAZOP)",
+            "3) Estudio prefabricado",
             "4) Curación humana por nodo",
             "5) Completar estudio",
             "6) Aprobar",
