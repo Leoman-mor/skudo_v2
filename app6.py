@@ -651,7 +651,7 @@ def hazop_rows_to_df(hazop_by_nodo: Dict[str, Any]) -> pd.DataFrame:
     return df[cols]
 
 def render_estudios_flujo(instalacion_activa: str, perfil: str):
-    render_hero(instalacion_activa, perfil, "Estudios con SKUDO")
+    render_hero(instalacion_activa, perfil, "Agente inteligente & Estudios")
 
     # selector / crear estudio
     topL, topR = st.columns([2.2, 1.0])
@@ -730,9 +730,9 @@ def render_estudios_flujo(instalacion_activa: str, perfil: str):
         st.markdown("<div class='panel-card'>", unsafe_allow_html=True)
 
         pasos = [
-            "1) Recomendar estudio",
+            "1) Estudio recomendado",
             "2) Preparación",
-            "3) Estudio prefabricado",
+            "3) Prefabricado (HAZOP)",
             "4) Curación humana por nodo",
             "5) Completar estudio",
             "6) Aprobar",
@@ -930,7 +930,8 @@ def render_estudios_flujo(instalacion_activa: str, perfil: str):
 
                 # Panel rápido de “sugerencias IA” (DEMO) tipo tu mockup
                 st.markdown("---")
-                st.markdown("**Sugerencia recomendación SKUDO para la fila seleccionada**")
+                st.markdown("**Sugerencia IA (DEMO) para la fila seleccionada**")
+                st.caption("Esto simula tu panel: similitud histórica + recomendación y botones.")
 
                 # elegimos una fila (si existe)
                 if not df_n_edit.empty:
@@ -1267,7 +1268,7 @@ with st.sidebar:
         "Navegación",
         options=[
             "Tablero",
-            "Estudios con SKUDO",
+            "Agente inteligente & Estudios",
             "Análisis de riesgos",
             "Informe",
             "Mi Agente SKUDO"
@@ -1280,7 +1281,7 @@ with st.sidebar:
 # =========================================================
 if menu == "Tablero":
     render_dashboard(instalacion_activa, perfil)
-elif menu == "Agente inteligente & Estudios":
+elif menu == "Estudios con SKUDO":
     render_estudios_flujo(instalacion_activa, perfil)
 elif menu == "Análisis de riesgos":
     render_analisis_riesgos(instalacion_activa, perfil)
