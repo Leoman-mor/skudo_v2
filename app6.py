@@ -930,8 +930,7 @@ def render_estudios_flujo(instalacion_activa: str, perfil: str):
 
                 # Panel rápido de “sugerencias IA” (DEMO) tipo tu mockup
                 st.markdown("---")
-                st.markdown("**Sugerencia IA (DEMO) para la fila seleccionada**")
-                st.caption("Esto simula tu panel: similitud histórica + recomendación y botones.")
+                st.markdown("**Sugerencia recomendación SKUDO para la fila seleccionada**")
 
                 # elegimos una fila (si existe)
                 if not df_n_edit.empty:
